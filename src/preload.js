@@ -216,6 +216,10 @@ contextBridge.exposeInMainWorld('api', {
     saveApiKey: (key) => ipcRenderer.invoke('model:save-api-key', key),
     removeApiKey: (provider) => ipcRenderer.invoke('model:remove-api-key', provider),
     setSelectedModel: (data) => ipcRenderer.invoke('model:set-selected-model', data),
+
+    // Selected preset persistence
+    getSelectedPreset: () => ipcRenderer.invoke('settings:get-selected-preset'),
+    setSelectedPreset: (presetId) => ipcRenderer.invoke('settings:set-selected-preset', presetId),
     
     // Ollama Management
     getOllamaStatus: () => ipcRenderer.invoke('ollama:get-status'),

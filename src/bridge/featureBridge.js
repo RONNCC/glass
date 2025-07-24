@@ -24,6 +24,10 @@ module.exports = {
     ipcMain.handle('settings:clear-api-key', async (e, { provider }) => await settingsService.clearApiKey(provider));
     ipcMain.handle('settings:set-selected-model', async (e, { type, modelId }) => await settingsService.setSelectedModel(type, modelId));    
 
+    // Selected Preset Management
+    ipcMain.handle('settings:get-selected-preset', async () => await settingsService.getSelectedPreset());
+    ipcMain.handle('settings:set-selected-preset', async (event, presetId) => await settingsService.setSelectedPreset(presetId));
+
     ipcMain.handle('settings:get-ollama-status', async () => await settingsService.getOllamaStatus());
     ipcMain.handle('settings:ensure-ollama-ready', async () => await settingsService.ensureOllamaReady());
     ipcMain.handle('settings:shutdown-ollama', async () => await settingsService.shutdownOllama());

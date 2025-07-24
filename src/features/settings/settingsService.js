@@ -214,6 +214,8 @@ function getDefaultSettings() {
         googleSearchEnabled: false,
         backgroundTransparency: 0.5,
         fontSize: 14,
+        // New: remember the user's last selected prompt preset
+        selectedPresetId: null,
         contentProtection: true
     };
 }
@@ -420,6 +422,26 @@ async function setAutoUpdateSetting(isEnabled) {
     }
 }
 
+async function getSelectedPreset() {
+    try {
+        const settings = await getSettings();
+        return settings.selectedPresetId || null;
+    } catch (error) {
+        console.error('[SettingsService] Error getting selected preset:', error);
+        return null;
+    }
+}
+
+async function setSelectedPreset(presetId) {
+    try {
+        await saveSettings({ selectedPresetId: presetId });
+        return { success: true };
+    } catch (error) {
+        console.error('[SettingsService] Error setting selected preset:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 function initialize() {
     // cleanup 
     windowNotificationManager.cleanup();
@@ -456,6 +478,8 @@ module.exports = {
     updateContentProtection,
     getAutoUpdateSetting,
     setAutoUpdateSetting,
+    getSelectedPreset,
+    setSelectedPreset,
     // Model settings facade
     getModelSettings,
     clearApiKey,

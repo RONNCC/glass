@@ -613,12 +613,13 @@ export class SettingsView extends LitElement {
         this.isLoading = true;
         try {
             // Load essential data first
-            const [userState, modelSettings, presets, contentProtection, shortcuts] = await Promise.all([
+            const [userState, modelSettings, presets, contentProtection, shortcuts, selectedPresetId] = await Promise.all([
                 window.api.settingsView.getCurrentUser(),
                 window.api.settingsView.getModelSettings(), // Facade call
                 window.api.settingsView.getPresets(),
                 window.api.settingsView.getContentProtectionStatus(),
-                window.api.settingsView.getCurrentShortcuts()
+                window.api.settingsView.getCurrentShortcuts(),
+                window.api.settingsView.getSelectedPreset()
             ]);
             
             if (userState && userState.isLoggedIn) this.firebaseUser = userState;
@@ -637,8 +638,14 @@ export class SettingsView extends LitElement {
             this.isContentProtectionOn = contentProtection;
             this.shortcuts = shortcuts || {};
             if (this.presets.length > 0) {
-                const firstUserPreset = this.presets.find(p => p.is_default === 0);
-                if (firstUserPreset) this.selectedPreset = firstUserPreset;
+                let initialPreset = null;
+                if (selectedPresetId) {
+                    initialPreset = this.presets.find(p => p.id === selectedPresetId);
+                }
+                if (!initialPreset) {
+                    initialPreset = this.presets.find(p => p.is_default === 0) || this.presets[0];
+                }
+                this.selectedPreset = initialPreset;
             }
             
             // Load LocalAI status asynchronously to improve initial load time
@@ -1090,7 +1097,14 @@ export class SettingsView extends LitElement {
 
     async handlePresetSelect(preset) {
         this.selectedPreset = preset;
-        // Here you could implement preset application logic
+
+        // Persist the selection so that it is restored on next launch
+        try {
+            await window.api.settingsView.setSelectedPreset(preset.id);
+        } catch (error) {
+            console.error('[SettingsView] Failed to persist selected preset:', error);
+        }
+
         console.log('Selected preset:', preset);
     }
 
