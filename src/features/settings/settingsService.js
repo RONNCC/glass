@@ -442,6 +442,19 @@ async function setSelectedPreset(presetId) {
     }
 }
 
+async function getSelectedPresetPrompt() {
+    try {
+        const presetId = await getSelectedPreset();
+        if (!presetId) return null;
+        const presets = await getPresets();
+        const match = presets.find(p => p.id === presetId);
+        return match ? match.prompt : null;
+    } catch (error) {
+        console.error('[SettingsService] Error getting selected preset prompt:', error);
+        return null;
+    }
+}
+
 function initialize() {
     // cleanup 
     windowNotificationManager.cleanup();
@@ -480,6 +493,7 @@ module.exports = {
     setAutoUpdateSetting,
     getSelectedPreset,
     setSelectedPreset,
+    getSelectedPresetPrompt,
     // Model settings facade
     getModelSettings,
     clearApiKey,

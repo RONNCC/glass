@@ -4,6 +4,13 @@ import { useState, useEffect } from 'react'
 import { ChevronDown, Plus, Copy } from 'lucide-react'
 import { getPresets, updatePreset, createPreset, PromptPreset } from '@/utils/api'
 
+// Helper to detect Electron preload bridge
+const hasIpc = () => {
+  if (typeof window === 'undefined') return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (window as any).api?.settingsView?.setSelectedPreset !== undefined;
+};
+
 export default function PersonalizePage() {
   const [allPresets, setAllPresets] = useState<PromptPreset[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<PromptPreset | null>(null);
@@ -24,6 +31,12 @@ export default function PersonalizePage() {
           const firstUserPreset = presetsData.find(p => p.is_default === 0) || presetsData[0];
           setSelectedPreset(firstUserPreset);
           setEditorContent(firstUserPreset.prompt);
+
+          // Persist initial selection if in Electron
+          if (hasIpc()) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (window as any).api.settingsView.setSelectedPreset(firstUserPreset.id).catch(() => {});
+          }
         }
       } catch (error) {
         console.error("Failed to fetch presets:", error);
@@ -42,6 +55,14 @@ export default function PersonalizePage() {
     setSelectedPreset(preset);
     setEditorContent(preset.prompt);
     setIsDirty(false);
+
+    // Persist selection if running inside Electron
+    if (hasIpc()) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).api.settingsView.setSelectedPreset(preset.id).catch((err: Error) => {
+        console.error('Failed to persist selected preset:', err);
+      });
+    }
   };
 
   const handleEditorChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -105,6 +126,11 @@ export default function PersonalizePage() {
       setSelectedPreset(newPreset);
       setEditorContent(newPreset.prompt);
       setIsDirty(false);
+
+      if (hasIpc()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).api.settingsView.setSelectedPreset(newPreset.id).catch(() => {});
+      }
     } catch (error) {
       console.error("Failed to create preset:", error);
       alert("Failed to create preset. See console for details.");
@@ -139,6 +165,11 @@ export default function PersonalizePage() {
       setAllPresets(prev => [...prev, newPreset]);
       setSelectedPreset(newPreset);
       setIsDirty(false);
+
+      if (hasIpc()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (window as any).api.settingsView.setSelectedPreset(newPreset.id).catch(() => {});
+      }
     } catch (error) {
       console.error("Failed to duplicate preset:", error);
       alert("Failed to duplicate preset. See console for details.");

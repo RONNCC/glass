@@ -22,6 +22,7 @@ const util = require('util');
 const execFile = util.promisify(require('child_process').execFile);
 const { desktopCapturer } = require('electron');
 const modelStateService = require('../common/services/modelStateService');
+const settingsService = require('../settings/settingsService');
 
 // Try to load sharp, but don't fail if it's not available
 let sharp;
@@ -254,7 +255,17 @@ class AskService {
 
             const conversationHistory = this._formatConversationForPrompt(conversationHistoryRaw);
 
-            const systemPrompt = getSystemPrompt('pickle_glass_analysis', conversationHistory, false);
+            // Fetch user-selected preset prompt for additional context
+            let presetPrompt = '';
+            try {
+                presetPrompt = await settingsService.getSelectedPresetPrompt();
+            } catch (err) {
+                console.error('[AskService] Failed to load selected preset prompt:', err.message);
+            }
+
+            const combinedContext = [presetPrompt, conversationHistory].filter(Boolean).join('\n\n');
+
+            const systemPrompt = getSystemPrompt('pickle_glass_analysis', combinedContext, false);
 
             const messages = [
                 { role: 'system', content: systemPrompt },

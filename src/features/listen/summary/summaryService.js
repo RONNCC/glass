@@ -4,6 +4,7 @@ const { createLLM } = require('../../common/ai/factory');
 const sessionRepository = require('../../common/repositories/session');
 const summaryRepository = require('./repositories');
 const modelStateService = require('../../common/services/modelStateService');
+const settingsService = require('../../settings/settingsService');
 
 class SummaryService {
     constructor() {
@@ -94,7 +95,15 @@ Please build upon this context while analyzing the new conversation segments.
 `;
         }
 
-        const basePrompt = getSystemPrompt('pickle_glass_analysis', '', false);
+        // Include the user's selected preset prompt (if any)
+        let presetPrompt = '';
+        try {
+            presetPrompt = await settingsService.getSelectedPresetPrompt();
+        } catch (e) {
+            console.error('[SummaryService] Failed to fetch preset prompt:', e.message);
+        }
+
+        const basePrompt = getSystemPrompt('pickle_glass_analysis', presetPrompt || '', false);
         const systemPrompt = basePrompt.replace('{{CONVERSATION_HISTORY}}', recentConversation);
 
         try {
