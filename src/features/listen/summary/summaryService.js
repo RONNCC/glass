@@ -7,6 +7,10 @@ const modelStateService = require('../../common/services/modelStateService');
 
 class SummaryService {
     constructor() {
+        // How often (in number of conversation turns) to run an AI analysis.
+        // Lower value = more frequent insights.
+        this.ANALYSIS_INTERVAL = 3;
+
         this.previousAnalysisResult = null;
         this.analysisHistory = [];
         this.conversationHistory = [];
@@ -303,7 +307,8 @@ Keep all points concise and build upon previous analysis if provided.`,
      * Triggers analysis when conversation history reaches 5 texts.
      */
     async triggerAnalysisIfNeeded() {
-        if (this.conversationHistory.length >= 5 && this.conversationHistory.length % 5 === 0) {
+        if (this.conversationHistory.length >= this.ANALYSIS_INTERVAL &&
+            this.conversationHistory.length % this.ANALYSIS_INTERVAL === 0) {
             console.log(`Triggering analysis - ${this.conversationHistory.length} conversation texts accumulated`);
 
             const data = await this.makeOutlineAndRequests(this.conversationHistory);
