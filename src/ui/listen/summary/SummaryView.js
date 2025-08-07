@@ -470,7 +470,7 @@ export class SummaryView extends LitElement {
                         <insights-title>Current Summary</insights-title>
                         ${data.summary.length > 0
                             ? data.summary
-                                  .slice(0, 5)
+                                  .slice(0, 3)
                                   .map(
                                       (bullet, index) => html`
                                           <div
@@ -488,7 +488,7 @@ export class SummaryView extends LitElement {
                             ? html`
                                   <insights-title>${data.topic.header}</insights-title>
                                   ${data.topic.bullets
-                                      .slice(0, 3)
+                                      .slice(0, 2)
                                       .map(
                                           (bullet, index) => html`
                                               <div

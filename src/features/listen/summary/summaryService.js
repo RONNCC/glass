@@ -129,22 +129,17 @@ Please build upon this context while analyzing the new conversation segments.
 Analyze the conversation and provide a structured summary. Format your response as follows:
 
 **Summary Overview**
-- Main discussion point with context
+- Main discussion point with context (max 4 bullets)
 
 **Key Topic: [Topic Name]**
-- First key insight
-- Second key insight
-- Third key insight
-
-**Extended Explanation**
-Provide 2-3 sentences explaining the context and implications.
+- First key insight (concise)
+- Second key insight (concise)
 
 **Suggested Questions**
 1. First follow-up question?
 2. Second follow-up question?
-3. Third follow-up question?
 
-Keep all points concise and build upon previous analysis if provided.`,
+Keep all points brief and actionable. Avoid extended explanations.`,
                 },
             ];
 
@@ -153,8 +148,8 @@ Keep all points concise and build upon previous analysis if provided.`,
             const llm = createLLM(modelInfo.provider, {
                 apiKey: modelInfo.apiKey,
                 model: modelInfo.model,
-                temperature: 0.7,
-                maxTokens: 1024,
+                temperature: 1.0,
+                maxTokens: 512,
                 usePortkey: modelInfo.provider === 'openai-glass',
                 portkeyVirtualKey: modelInfo.provider === 'openai-glass' ? modelInfo.apiKey : undefined,
             });
