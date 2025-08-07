@@ -22,6 +22,7 @@ const PROVIDERS = {
       name: 'OpenAI',
       handler: () => require("./providers/openai"),
       llmModels: [
+          { id: 'gpt-5', name: 'GPT-5' },
           { id: 'gpt-4.1', name: 'GPT-4.1' },
       ],
       sttModels: [

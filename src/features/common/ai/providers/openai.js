@@ -159,27 +159,39 @@ async function createSTT({ apiKey, language = 'en', callbacks = {}, usePortkey =
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - OpenAI API key
  * @param {string} [opts.model='gpt-4.1'] - Model name
- * @param {number} [opts.temperature=0.7] - Temperature
- * @param {number} [opts.maxTokens=2048] - Max tokens
+ * @param {number} [opts.temperature=1] - Temperature
+ * @param {number} [opts.maxTokens=2048] - Max completion tokens
  * @param {boolean} [opts.usePortkey=false] - Whether to use Portkey
  * @param {string} [opts.portkeyVirtualKey] - Portkey virtual key
  * @returns {object} LLM instance
  */
-function createLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2048, usePortkey = false, portkeyVirtualKey, ...config }) {
+function createLLM({ apiKey, model = 'gpt-4.1', temperature = 1, maxTokens = 2048, usePortkey = false, portkeyVirtualKey, ...config }) {
   const client = new OpenAI({ apiKey });
   
   const callApi = async (messages) => {
     if (!usePortkey) {
-      const response = await client.chat.completions.create({
-        model: model,
-        messages: messages,
-        temperature: temperature,
-        max_tokens: maxTokens
-      });
-      return {
-        content: response.choices[0].message.content.trim(),
-        raw: response
-      };
+      console.log(`[OpenAI Provider] Making API call with model: ${model}`);
+      try {
+        const response = await client.chat.completions.create({
+          model: model,
+          messages: messages,
+          temperature: temperature,
+          max_completion_tokens: maxTokens
+        });
+        return {
+          content: response.choices[0].message.content.trim(),
+          raw: response
+        };
+      } catch (error) {
+        console.error(`[OpenAI Provider] API call failed for model ${model}:`, error);
+        console.error(`[OpenAI Provider] Error details:`, {
+          status: error.status,
+          message: error.message,
+          type: error.type,
+          code: error.code
+        });
+        throw error;
+      }
     } else {
       const fetchUrl = 'https://api.portkey.ai/v1/chat/completions';
       const response = await fetch(fetchUrl, {
@@ -193,7 +205,7 @@ function createLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2
             model: model,
             messages,
             temperature,
-            max_tokens: maxTokens,
+            max_completion_tokens: maxTokens,
         }),
       });
 
@@ -255,13 +267,13 @@ function createLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - OpenAI API key
  * @param {string} [opts.model='gpt-4.1'] - Model name
- * @param {number} [opts.temperature=0.7] - Temperature
- * @param {number} [opts.maxTokens=2048] - Max tokens
+ * @param {number} [opts.temperature=1] - Temperature
+ * @param {number} [opts.maxTokens=2048] - Max completion tokens
  * @param {boolean} [opts.usePortkey=false] - Whether to use Portkey
  * @param {string} [opts.portkeyVirtualKey] - Portkey virtual key
  * @returns {object} Streaming LLM instance
  */
-function createStreamingLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxTokens = 2048, usePortkey = false, portkeyVirtualKey, ...config }) {
+function createStreamingLLM({ apiKey, model = 'gpt-4.1', temperature = 1.0, maxTokens = 2048, usePortkey = false, portkeyVirtualKey, ...config }) {
   return {
     streamChat: async (messages) => {
       const fetchUrl = usePortkey 
@@ -286,15 +298,21 @@ function createStreamingLLM({ apiKey, model = 'gpt-4.1', temperature = 0.7, maxT
           model: model,
           messages,
           temperature,
-          max_tokens: maxTokens,
+          max_completion_tokens: maxTokens,
           stream: true,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+        let details;
+        try {
+          const text = await response.text();
+          details = (() => { try { return JSON.parse(text).error?.message; } catch { return text; } })();
+        } catch {
+          details = '';
+        }
+        throw new Error(`OpenAI API request failed: ${response.status} ${response.statusText}${details ? ` - ${details}` : ''}`);
       }
-
       return response;
     }
   };
