@@ -17,6 +17,8 @@ function getCurrentDisplay(window) {
     return screen.getDisplayNearestPoint(windowCenter);
 }
 
+const LAYOUT_DEBUG = false;
+
 class WindowLayoutManager {
     /**
      * @param {Map<string, BrowserWindow>} windowPool - 관리할 창들의 맵
@@ -124,7 +126,7 @@ class WindowLayoutManager {
         if (maxHeight > 0) {
             adjustedHeight = Math.min(maxHeight, adjustedHeight);
         }
-        console.log(`[Layout Debug] calculateWindowHeightAdjustment: targetHeight=${targetHeight}`);
+        if (LAYOUT_DEBUG) console.log(`[Layout Debug] calculateWindowHeightAdjustment: targetHeight=${targetHeight}`);
         return { ...currentBounds, height: adjustedHeight };
     }
     
@@ -169,10 +171,10 @@ class WindowLayoutManager {
         const listenB = listenVis ? listen.getBounds() : null;
 
         if (askVis) {
-            console.log(`[Layout Debug] Ask Window Bounds: height=${askB.height}, width=${askB.width}`);
+            if (LAYOUT_DEBUG) console.log(`[Layout Debug] Ask Window Bounds: height=${askB.height}, width=${askB.width}`);
         }
         if (listenVis) {
-            console.log(`[Layout Debug] Listen Window Bounds: height=${listenB.height}, width=${listenB.width}`);
+            if (LAYOUT_DEBUG) console.log(`[Layout Debug] Listen Window Bounds: height=${listenB.height}, width=${listenB.width}`);
         }
     
         const layout = {};
@@ -312,3 +314,4 @@ class WindowLayoutManager {
 }
 
 module.exports = WindowLayoutManager;
+module.exports.LAYOUT_DEBUG = LAYOUT_DEBUG;
