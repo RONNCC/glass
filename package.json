@@ -5,19 +5,28 @@
     "description": "Cl*ely for Free",
     "main": "src/index.js",
     "scripts": {
-        "setup": "npm install && cd pickleglass_web && npm install && npm run build && cd .. && npm start",
-        "start": "npm run build:renderer && electron .",
-        "package": "npm run build:all && electron-builder --dir",
-        "make": "npm run build:renderer && electron-forge make",
-        "build": "npm run build:all && electron-builder --config electron-builder.yml --publish never",
-        "build:win": "npm run build:all && electron-builder --win --x64 --publish never",
-        "publish": "npm run build:all && electron-builder --config electron-builder.yml --publish always",
+        "start": "pnpm run intv",
+        "predev": "pnpm install --silent && pnpm -C pickleglass_web install --silent && pnpm exec electron-builder install-app-deps",
+        "dev": "pnpm run build:renderer && NO_DEVTOOLS=1 NODE_ENV=development electron .",
+        "dev:watch": "nodemon",
+        "preintv": "pnpm install --silent && pnpm -C pickleglass_web install --silent && pnpm exec electron-builder install-app-deps",
+        "intv": "pnpm run build:renderer && NO_DEVTOOLS=1 APP_MODE=intv NODE_ENV=production electron .",
+        "predev:npm": "npm ci --no-audit --no-fund --progress=false && npm --prefix pickleglass_web ci --no-audit --no-fund --progress=false && npx electron-builder install-app-deps",
+        "dev:npm": "npm run build:renderer && NO_DEVTOOLS=1 NODE_ENV=development electron .",
+        "dev:watch:npm": "nodemon",
+        "preintv:npm": "npm ci --no-audit --no-fund --progress=false && npm --prefix pickleglass_web ci --no-audit --no-fund --progress=false && npx electron-builder install-app-deps",
+        "intv:npm": "npm run build:renderer && NO_DEVTOOLS=1 APP_MODE=intv NODE_ENV=production electron .",
+        "package": "pnpm run build:all && electron-builder --dir",
+        "build": "pnpm run build:all && electron-builder --config electron-builder.yml --publish never",
+        "build:win": "pnpm run build:all && electron-builder --win --x64 --publish never",
+        "publish": "pnpm run build:all && electron-builder --config electron-builder.yml --publish always",
         "lint": "eslint --ext .ts,.tsx,.js .",
-        "postinstall": "electron-builder install-app-deps",
-        "build:renderer": "node build.js",
-        "build:web": "cd pickleglass_web && npm run build && cd ..",
-        "build:all": "npm run build:renderer && npm run build:web",
-        "watch:renderer": "node build.js --watch"
+        "postinstall": "if [ -z \"$SKIP_APP_DEPS\" ]; then electron-builder install-app-deps; else echo 'Skipping electron app deps'; fi",
+        "clean:renderer": "rm -rf public/build",
+        "build:renderer": "pnpm run clean:renderer && esbuild src/ui/entries/* --bundle --platform=browser --format=esm --loader:.js=jsx --sourcemap --external:electron --outdir=public/build --entry-names=[name]",
+        "watch:renderer": "esbuild src/ui/entries/* --bundle --platform=browser --format=esm --loader:.js=jsx --sourcemap --external:electron --outdir=public/build --entry-names=[name] --watch",
+        "build:web": "pnpm -C pickleglass_web run build",
+        "build:all": "pnpm run build:renderer & pnpm -C pickleglass_web run build & wait"
     },
     "keywords": [
         "glass",
@@ -64,9 +73,36 @@
         "electron-builder": "^26.0.12",
         "electron-reloader": "^1.2.3",
         "esbuild": "^0.25.5",
+        "nodemon": "^3.1.0",
         "prettier": "^3.6.2"
     },
     "optionalDependencies": {
         "electron-liquid-glass": "^1.0.1"
-    }
+    },
+    "nodemonConfig": {
+        "quiet": true,
+        "exec": "pnpm run build:renderer && NO_DEVTOOLS=1 NODE_ENV=development electron .",
+        "watch": [
+            "src/ui/",
+            "src/features/",
+            "src/window/"
+        ],
+        "ignore": [
+            "public/build/",
+            "node_modules/",
+            ".git/",
+            ".next/",
+            "pickleglass_web/out/"
+        ],
+        "ext": "js,jsx,ts,tsx,css,html,json"
+    },
+    "comments": [
+        "dev: installs deps (predev), rebuilds natives, then builds once and launches Electron with NO_DEVTOOLS=1 and NODE_ENV=development",
+        "dev:watch: watches app sources; on change, rebuilds renderer and restarts Electron automatically",
+        "intv: installs deps (preintv), clean build, then launch with NO_DEVTOOLS=1 and NODE_ENV=production (APP_MODE=intv)",
+        "start: alias for intv",
+        "watch:renderer remains available if you want live rebuilds (then restart dev on changes)",
+        "build:all runs renderer + Next export in parallel using shell backgrounding & wait; used by package/publish",
+        "Fallback npm: use npm run dev:npm, npm run dev:watch:npm, or npm run intv:npm if pnpm isn’t available"
+    ]
 }

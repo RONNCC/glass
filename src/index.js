@@ -695,8 +695,8 @@ async function startWebStack() {
 
 // Auto-update initialization
 async function initAutoUpdater() {
-    if (process.env.NODE_ENV === 'development') {
-        console.log('Development environment, skipping auto-updater.');
+    if (process.env.NODE_ENV === 'development' || process.env.APP_MODE === 'intv') {
+        console.log('Dev or interview mode, skipping auto-updater.');
         return;
     }
 

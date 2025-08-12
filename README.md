@@ -43,13 +43,45 @@ node --version
 # curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
 # nvm install 20
 # nvm use 20
+
+# Install pnpm (required)
+# macOS (Homebrew):
+brew install pnpm
+# or via npm:
+npm i -g pnpm
 ```
 
-### Installation
+### Commands you’ll use
 
-```bash
-npm run setup
-```
+- **1) Develop (one-shot build)**: auto-installs, builds once, DevTools off
+  ```bash
+  pnpm run dev
+  ```
+  - Re-run after changes.
+
+- **2) Develop (watched)**: live-reloads on changes (renderer rebuild + Electron restart)
+  ```bash
+  pnpm run dev:watch
+  ```
+
+- **3) Interview mode**: clean, fast, DevTools off
+  ```bash
+  pnpm run intv
+  ```
+
+### Fallback (npm)
+If pnpm is not available or you prefer npm, use these equivalents:
+
+- Develop and use:
+  ```bash
+  npm run dev:npm
+  ```
+- Interview mode:
+  ```bash
+  npm run intv:npm
+  ```
+
+> Both flows auto-install dependencies and rebuild native modules (better-sqlite3, keytar) via `electron-builder install-app-deps` before launching.
 
 ## Highlights
 
