@@ -49,6 +49,7 @@ let currentHeaderState = 'apikey';
 const windowPool = new Map();
 
 let settingsHideTimer = null;
+const SETTINGS_HIDE_DELAY_MS = 400;
 
 
 let layoutManager = null;
@@ -273,11 +274,21 @@ function changeAllWindowsVisibility(windowPool, targetVisibility) {
  */
 async function handleWindowVisibilityRequest(windowPool, layoutManager, movementManager, name, shouldBeVisible) {
     console.log(`[WindowManager] Request: set '${name}' visibility to ${shouldBeVisible}`);
-    const win = windowPool.get(name);
+    let win = windowPool.get(name);
 
     if (!win || win.isDestroyed()) {
-        console.warn(`[WindowManager] Window '${name}' not found or destroyed.`);
-        return;
+        if (shouldBeVisible) {
+            // Attempt lazy creation for show requests
+            createFeatureWindows(windowPool.get('header'), name);
+            win = windowPool.get(name);
+            if (!win || win.isDestroyed()) {
+                console.warn(`[WindowManager] Window '${name}' not found or destroyed (after lazy create).`);
+                return;
+            }
+        } else {
+            // Hide request for a missing window is benign; ignore quietly
+            return;
+        }
     }
 
     if (name !== 'settings') {
@@ -330,7 +341,7 @@ async function handleWindowVisibilityRequest(windowPool, layoutManager, movement
                     win.hide();
                 }
                 settingsHideTimer = null;
-            }, 200);
+            }, SETTINGS_HIDE_DELAY_MS);
 
             win.__lockedByButton = false;
         }
