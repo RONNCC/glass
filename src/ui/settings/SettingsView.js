@@ -436,6 +436,32 @@ export class SettingsView extends LitElement {
             background: rgba(0, 122, 255, 0.8);
             transition: width 0.3s ease;
         }
+        /* Accordion variants for subtle visual distinction */
+        .accordion-section { 
+            padding-top: 8px; 
+            margin-top: 8px; 
+        }
+        .accordion-section .preset-header {
+            padding: 6px 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 6px;
+            margin-bottom: 0; /* remove gap when content is hidden; content adds its own margin */
+        }
+        .accordion-section .preset-header:hover {
+            background: rgba(255, 255, 255, 0.10);
+        }
+        .accordion-section.open { padding-bottom: 8px; }
+        .accordion-section.closed { padding-bottom: 2px; }
+        .accordion-content {
+            margin-top: 6px;
+        }
+        
+        /* Remove internal section borders when inside accordions */
+        .accordion-content .model-selection-section,
+        .accordion-content .api-key-section {
+            border-top: none;
+            padding-top: 0;
+        }
         
         /* Dropdown styles */
         select.model-dropdown {
@@ -497,6 +523,8 @@ export class SettingsView extends LitElement {
         presets: { type: Array, state: true },
         selectedPreset: { type: Object, state: true },
         showPresets: { type: Boolean, state: true },
+        showApiKeys: { type: Boolean, state: true },
+        showModels: { type: Boolean, state: true },
         autoUpdateEnabled: { type: Boolean, state: true },
         autoUpdateLoading: { type: Boolean, state: true },
         // Ollama related properties
@@ -527,6 +555,8 @@ export class SettingsView extends LitElement {
         this.presets = [];
         this.selectedPreset = null;
         this.showPresets = false;
+        this.showApiKeys = false; // collapsed by default to reduce clutter
+        this.showModels = false; // collapsed by default to reduce clutter
         // Ollama related
         this.ollamaStatus = { installed: false, running: false };
         this.ollamaModels = [];
@@ -539,6 +569,14 @@ export class SettingsView extends LitElement {
         this.autoUpdateLoading = true;
         this.loadInitialData();
         //////// after_modelStateService ////////
+    }
+
+    toggleApiKeys = () => {
+        this.showApiKeys = !this.showApiKeys;
+    }
+
+    toggleModels = () => {
+        this.showModels = !this.showModels;
     }
 
     async loadAutoUpdateSetting() {
@@ -1380,8 +1418,28 @@ export class SettingsView extends LitElement {
                     </div>
                 </div>
 
-                ${apiKeyManagementHTML}
-                ${modelSelectionHTML}
+                <div class="preset-section accordion-section ${this.showApiKeys ? 'open' : 'closed'}">
+                    <div class="preset-header">
+                        <span class="preset-title">API Keys</span>
+                        <span class="preset-toggle" @click=${this.toggleApiKeys}>
+                            ${this.showApiKeys ? '▼' : '▶'}
+                        </span>
+                    </div>
+                    <div class="${this.showApiKeys ? 'accordion-content' : 'accordion-content hidden'}">
+                        ${apiKeyManagementHTML}
+                    </div>
+                </div>
+                <div class="preset-section accordion-section ${this.showModels ? 'open' : 'closed'}">
+                    <div class="preset-header">
+                        <span class="preset-title">Models</span>
+                        <span class="preset-toggle" @click=${this.toggleModels}>
+                            ${this.showModels ? '▼' : '▶'}
+                        </span>
+                    </div>
+                    <div class="${this.showModels ? 'accordion-content' : 'accordion-content hidden'}">
+                        ${modelSelectionHTML}
+                    </div>
+                </div>
 
                 <div class="buttons-section" style="border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 6px; margin-top: 6px;">
                     <button class="settings-button full-width" @click=${this.openShortcutEditor}>
