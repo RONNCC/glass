@@ -176,7 +176,13 @@ function createLLM({ apiKey, model = 'gpt-4.1', temperature = 1, maxTokens = 204
           model: model,
           messages: messages,
           temperature: temperature,
-          max_completion_tokens: maxTokens
+          max_completion_tokens: maxTokens,
+          ...(() => {
+            if (config.responseSchema) {
+              return { response_format: { type: 'json_schema', json_schema: { name: config.responseSchemaName || 'structured_output', schema: config.responseSchema } } };
+            }
+            return (config.responseFormat ? { response_format: config.responseFormat } : {});
+          })()
         });
         return {
           content: response.choices[0].message.content.trim(),
@@ -206,6 +212,12 @@ function createLLM({ apiKey, model = 'gpt-4.1', temperature = 1, maxTokens = 204
             messages,
             temperature,
             max_completion_tokens: maxTokens,
+            ...(() => {
+              if (config.responseSchema) {
+                return { response_format: { type: 'json_schema', json_schema: { name: config.responseSchemaName || 'structured_output', schema: config.responseSchema } } };
+              }
+              return (config.responseFormat ? { response_format: config.responseFormat } : {});
+            })()
         }),
       });
 
@@ -300,6 +312,12 @@ function createStreamingLLM({ apiKey, model = 'gpt-4.1', temperature = 1.0, maxT
           temperature,
           max_completion_tokens: maxTokens,
           stream: true,
+          ...(() => {
+            if (config.responseSchema) {
+              return { response_format: { type: 'json_schema', json_schema: { name: config.responseSchemaName || 'structured_output', schema: config.responseSchema } } };
+            }
+            return (config.responseFormat ? { response_format: config.responseFormat } : {});
+          })()
         }),
       });
 

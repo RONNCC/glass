@@ -118,7 +118,7 @@ function convertMessagesToOllamaFormat(messages) {
 
 function createLLM({ 
     model, 
-    temperature = 0.7, 
+    temperature = 1, 
     maxTokens = 2048, 
     baseUrl = 'http://localhost:11434',
     ...config 
@@ -162,6 +162,7 @@ function createLLM({
                             model,
                             messages,
                             stream: false,
+                            ...(config.responseFormat && config.responseFormat.type === 'json_object' ? { format: 'json' } : {}),
                             options: {
                                 temperature,
                                 num_predict: maxTokens,
@@ -197,15 +198,16 @@ function createLLM({
                     const response = await fetch(`${baseUrl}/api/chat`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            model,
-                            messages: ollamaMessages,
-                            stream: false,
-                            options: {
-                                temperature,
-                                num_predict: maxTokens,
-                            }
-                        })
+                                                body: JSON.stringify({
+                             model,
+                             messages: ollamaMessages,
+                             stream: false,
+                             ...(config.responseFormat && config.responseFormat.type === 'json_object' ? { format: 'json' } : {}),
+                             options: {
+                                 temperature,
+                                 num_predict: maxTokens,
+                             }
+                         })
                     });
 
                     if (!response.ok) {
@@ -229,7 +231,7 @@ function createLLM({
 
 function createStreamingLLM({ 
     model, 
-    temperature = 0.7, 
+    temperature = 1, 
     maxTokens = 2048, 
     baseUrl = 'http://localhost:11434',
     ...config 
@@ -250,15 +252,16 @@ function createStreamingLLM({
                     const response = await fetch(`${baseUrl}/api/chat`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            model,
-                            messages: ollamaMessages,
-                            stream: true,
-                            options: {
-                                temperature,
-                                num_predict: maxTokens,
-                            }
-                        })
+                                                body: JSON.stringify({
+                             model,
+                             messages: ollamaMessages,
+                             stream: true,
+                             ...(config.responseFormat && config.responseFormat.type === 'json_object' ? { format: 'json' } : {}),
+                             options: {
+                                 temperature,
+                                 num_predict: maxTokens,
+                             }
+                         })
                     });
 
                     if (!response.ok) {

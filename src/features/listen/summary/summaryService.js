@@ -10,7 +10,7 @@ class SummaryService {
     constructor() {
         // How often (in number of conversation turns) to run an AI analysis.
         // Lower value = more frequent insights.
-        this.ANALYSIS_INTERVAL = 3;
+        this.ANALYSIS_INTERVAL = 4;
 
         this.previousAnalysisResult = null;
         this.analysisHistory = [];
@@ -126,20 +126,23 @@ Please build upon this context while analyzing the new conversation segments.
                     role: 'user',
                     content: `${contextualPrompt}
 
-Analyze the conversation and provide a structured summary. Format your response as follows:
+----
 
-**Summary Overview**
-- Main discussion point with context (max 4 bullets)
+Return ONLY a compact JSON object matching this schema. Do not add any extra text or markdown:
+{
+  "summary": string[],                 // up to 5 concise bullets
+  "topic": { "header": string, "bullets": string[] }, // up to 3 bullets
+  "actions": string[],                 // up to 5 actionable items, can include leading emojis
+  "followUps": string[]               // up to 3 suggested follow-ups
+}
 
-**Key Topic: [Topic Name]**
-- First key insight (concise)
-- Second key insight (concise)
+Rules:
+- Keep strings short and actionable
+- Do not include markdown formatting (no **, -, #, etc.)
+- If any field is unavailable, return an empty array or empty string for that field
+- Build upon previous analysis context when provided
 
-**Suggested Questions**
-1. First follow-up question?
-2. Second follow-up question?
-
-Keep all points brief and actionable. Avoid extended explanations.`,
+Analyze the conversation and produce ONLY the JSON object described above.`,
                 },
             ];
 
@@ -148,8 +151,31 @@ Keep all points brief and actionable. Avoid extended explanations.`,
             const llm = createLLM(modelInfo.provider, {
                 apiKey: modelInfo.apiKey,
                 model: modelInfo.model,
-                temperature: 1.0,
+                temperature: 1,
                 maxTokens: 512,
+                // Prefer real schema when supported (OpenAI, Anthropic, Gemini). Others will ignore.
+                responseSchema: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['summary','topic','actions','followUps'],
+                  properties: {
+                    summary: { type: 'array', maxItems: 5, items: { type: 'string' } },
+                    topic: {
+                      type: 'object',
+                      additionalProperties: false,
+                      required: ['header','bullets'],
+                      properties: {
+                        header: { type: 'string' },
+                        bullets: { type: 'array', maxItems: 3, items: { type: 'string' } }
+                      }
+                    },
+                    actions: { type: 'array', maxItems: 5, items: { type: 'string' } },
+                    followUps: { type: 'array', maxItems: 3, items: { type: 'string' } }
+                  }
+                },
+                responseSchemaName: 'insights_summary',
+                // Fallback hint for providers that only support "json_object"
+                responseFormat: { type: 'json_object' },
                 usePortkey: modelInfo.provider === 'openai-glass',
                 portkeyVirtualKey: modelInfo.provider === 'openai-glass' ? modelInfo.apiKey : undefined,
             });
@@ -158,7 +184,32 @@ Keep all points brief and actionable. Avoid extended explanations.`,
 
             const responseText = completion.content;
             console.log(`✅ Analysis response received: ${responseText}`);
-            const structuredData = this.parseResponseText(responseText, this.previousAnalysisResult);
+
+            // Prefer structured JSON parsing; fall back to legacy parser on failure
+            let structuredData;
+            try {
+                const parsed = JSON.parse(responseText);
+                structuredData = {
+                    summary: Array.isArray(parsed.summary) ? parsed.summary.slice(0, 5) : [],
+                    topic: {
+                        header: typeof parsed.topic?.header === 'string' ? parsed.topic.header : '',
+                        bullets: Array.isArray(parsed.topic?.bullets) ? parsed.topic.bullets.slice(0, 3) : [],
+                    },
+                    actions: Array.isArray(parsed.actions) ? parsed.actions.slice(0, 5) : [],
+                    followUps: Array.isArray(parsed.followUps) ? parsed.followUps.slice(0, 3) : ['✉️ Draft a follow-up email', '✅ Generate action items', '📝 Show summary'],
+                };
+
+                // Basic normalization to strip markdown if model ignored instruction
+                const stripMd = (s) => typeof s === 'string' ? s.replace(/^[-*\s]+/g, '').replace(/^\*\*|\*\*$/g, '') : s;
+                structuredData.summary = structuredData.summary.map(stripMd);
+                structuredData.topic.header = stripMd(structuredData.topic.header);
+                structuredData.topic.bullets = structuredData.topic.bullets.map(stripMd);
+                structuredData.actions = structuredData.actions.map(stripMd);
+                structuredData.followUps = structuredData.followUps.map(stripMd);
+            } catch (e) {
+                console.warn('[SummaryService] JSON parse failed, falling back to legacy parser:', e.message, responseText);
+                structuredData = this.parseResponseText(responseText, this.previousAnalysisResult);
+            }
 
             if (this.currentSessionId) {
                 try {
@@ -195,6 +246,60 @@ Keep all points brief and actionable. Avoid extended explanations.`,
     }
 
     parseResponseText(responseText, previousResult) {
+        // 1) Try to salvage JSON first (strip fences, extract JSON block)
+        const tryParseJsonFromText = (text) => {
+            if (!text || typeof text !== 'string') return null;
+
+            // Remove markdown fences if present
+            const fencedMatch = text.match(/```\s*(json)?\s*([\s\S]*?)```/i);
+            if (fencedMatch && fencedMatch[2]) {
+                try { return JSON.parse(fencedMatch[2].trim()); } catch {}
+            }
+
+            // Try to find a JSON object substring
+            const firstBrace = text.indexOf('{');
+            const lastBrace = text.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                const candidate = text.slice(firstBrace, lastBrace + 1);
+                try { return JSON.parse(candidate); } catch {}
+            }
+
+            // Try a looser cleanup: remove leading markdown bullets and bolds
+            const cleaned = text
+                .replace(/\r/g, '')
+                .replace(/^[-*•]\s+/gm, '')
+                .replace(/\*\*([^*]+)\*\*/g, '$1')
+                .trim();
+            try { return JSON.parse(cleaned); } catch {}
+
+            return null;
+        };
+
+        const normalize = (value) => typeof value === 'string'
+            ? value.replace(/^[-*•\s]+/g, '').replace(/\*\*|`/g, '').trim()
+            : value;
+
+        const toLimitedArray = (arr, limit) => Array.isArray(arr)
+            ? arr.map(normalize).filter(Boolean).slice(0, limit)
+            : [];
+
+        // Prefer JSON if we can recover it
+        const parsed = tryParseJsonFromText(responseText);
+        if (parsed && typeof parsed === 'object') {
+            return {
+                summary: toLimitedArray(parsed.summary, 5),
+                topic: {
+                    header: normalize(parsed.topic?.header || ''),
+                    bullets: toLimitedArray(parsed.topic?.bullets, 3),
+                },
+                actions: toLimitedArray(parsed.actions, 5),
+                followUps: toLimitedArray(parsed.followUps, 3).length > 0
+                    ? toLimitedArray(parsed.followUps, 3)
+                    : ['✉️ Draft a follow-up email', '✅ Generate action items', '📝 Show summary'],
+            };
+        }
+
+        // 2) Lightweight heuristic fallback
         const structuredData = {
             summary: [],
             topic: { header: '', bullets: [] },
@@ -202,97 +307,65 @@ Keep all points brief and actionable. Avoid extended explanations.`,
             followUps: ['✉️ Draft a follow-up email', '✅ Generate action items', '📝 Show summary'],
         };
 
-        // 이전 결과가 있으면 기본값으로 사용
+        // Merge prior context where helpful
         if (previousResult) {
-            structuredData.topic.header = previousResult.topic.header;
-            structuredData.summary = [...previousResult.summary];
+            structuredData.topic.header = previousResult.topic.header || '';
+            structuredData.summary = Array.isArray(previousResult.summary) ? [...previousResult.summary] : [];
         }
 
         try {
-            const lines = responseText.split('\n');
-            let currentSection = '';
-            let isCapturingTopic = false;
-            let topicName = '';
+            const lines = (responseText || '').split('\n').map(l => l.trim()).filter(Boolean);
 
-            for (const line of lines) {
-                const trimmedLine = line.trim();
-
-                // 섹션 헤더 감지
-                if (trimmedLine.startsWith('**Summary Overview**')) {
-                    currentSection = 'summary-overview';
-                    continue;
-                } else if (trimmedLine.startsWith('**Key Topic:')) {
-                    currentSection = 'topic';
-                    isCapturingTopic = true;
-                    topicName = trimmedLine.match(/\*\*Key Topic: (.+?)\*\*/)?.[1] || '';
-                    if (topicName) {
-                        structuredData.topic.header = topicName + ':';
-                    }
-                    continue;
-                } else if (trimmedLine.startsWith('**Extended Explanation**')) {
-                    currentSection = 'explanation';
-                    continue;
-                } else if (trimmedLine.startsWith('**Suggested Questions**')) {
-                    currentSection = 'questions';
-                    continue;
-                }
-
-                // 컨텐츠 파싱
-                if (trimmedLine.startsWith('-') && currentSection === 'summary-overview') {
-                    const summaryPoint = trimmedLine.substring(1).trim();
-                    if (summaryPoint && !structuredData.summary.includes(summaryPoint)) {
-                        // 기존 summary 업데이트 (최대 5개 유지)
-                        structuredData.summary.unshift(summaryPoint);
-                        if (structuredData.summary.length > 5) {
-                            structuredData.summary.pop();
-                        }
-                    }
-                } else if (trimmedLine.startsWith('-') && currentSection === 'topic') {
-                    const bullet = trimmedLine.substring(1).trim();
-                    if (bullet && structuredData.topic.bullets.length < 3) {
-                        structuredData.topic.bullets.push(bullet);
-                    }
-                } else if (currentSection === 'explanation' && trimmedLine) {
-                    // explanation을 topic bullets에 추가 (문장 단위로)
-                    const sentences = trimmedLine
-                        .split(/\.\s+/)
-                        .filter(s => s.trim().length > 0)
-                        .map(s => s.trim() + (s.endsWith('.') ? '' : '.'));
-
-                    sentences.forEach(sentence => {
-                        if (structuredData.topic.bullets.length < 3 && !structuredData.topic.bullets.includes(sentence)) {
-                            structuredData.topic.bullets.push(sentence);
-                        }
-                    });
-                } else if (trimmedLine.match(/^\d+\./) && currentSection === 'questions') {
-                    const question = trimmedLine.replace(/^\d+\.\s*/, '').trim();
-                    if (question && question.includes('?')) {
-                        structuredData.actions.push(`❓ ${question}`);
-                    }
-                }
+            // Topic header heuristics
+            const topicLine = lines.find(l => /key\s*topic\s*:|^topic\s*:/i.test(l));
+            if (topicLine) {
+                const m = topicLine.match(/(?:key\s*topic\s*:|^topic\s*:)(.*)$/i);
+                if (m && m[1]) structuredData.topic.header = normalize(m[1]);
+            }
+            if (!structuredData.topic.header && lines.length > 0) {
+                structuredData.topic.header = normalize(lines[0]);
             }
 
-            // 기본 액션 추가
-            const defaultActions = ['✨ What should I say next?', '💬 Suggest follow-up questions'];
-            defaultActions.forEach(action => {
-                if (!structuredData.actions.includes(action)) {
-                    structuredData.actions.push(action);
-                }
-            });
+            // Collect bullet-like lines
+            const bulletLines = lines.filter(l => /^[-*•]\s+/.test(l)).map(l => l.replace(/^[-*•]\s+/, ''));
+            // Summary: take first 3–5 short bullets, else fall back to first 2 sentences
+            if (structuredData.summary.length === 0 && bulletLines.length > 0) {
+                structuredData.summary = bulletLines.slice(0, 5).map(normalize);
+            }
+            if (structuredData.summary.length === 0) {
+                const sentences = (responseText || '')
+                    .split(/(?<=[.!?])\s+/)
+                    .map(s => normalize(s))
+                    .filter(Boolean);
+                structuredData.summary = sentences.slice(0, 3);
+            }
 
-            // 액션 개수 제한
+            // Topic bullets: next bullets (up to 3) that aren't already in summary
+            const topicBullets = bulletLines
+                .filter(b => !structuredData.summary.includes(normalize(b)))
+                .slice(0, 3)
+                .map(normalize);
+            structuredData.topic.bullets = topicBullets;
+
+            // Actions: any numbered lines or questions → normalize and prefix with ❓ when question
+            const numbered = lines.filter(l => /^\d+\./.test(l)).map(l => l.replace(/^\d+\.\s*/, ''));
+            for (const item of numbered) {
+                const n = normalize(item);
+                if (!n) continue;
+                structuredData.actions.push(n.includes('?') ? `❓ ${n}` : n);
+                if (structuredData.actions.length >= 5) break;
+            }
+            // Cap actions and ensure defaults exist
             structuredData.actions = structuredData.actions.slice(0, 5);
-
-            // 유효성 검증 및 이전 데이터 병합
-            if (structuredData.summary.length === 0 && previousResult) {
-                structuredData.summary = previousResult.summary;
-            }
-            if (structuredData.topic.bullets.length === 0 && previousResult) {
-                structuredData.topic.bullets = previousResult.topic.bullets;
+            const defaults = ['✨ What should I say next?', '💬 Suggest follow-up questions'];
+            for (const d of defaults) {
+                if (!structuredData.actions.includes(d)) structuredData.actions.push(d);
+                if (structuredData.actions.length >= 5) break;
             }
         } catch (error) {
             console.error('❌ Error parsing response text:', error);
-            // 에러 시 이전 결과 반환
+
+            // On any failure, return previous result or minimal shell
             return (
                 previousResult || {
                     summary: [],
@@ -303,7 +376,6 @@ Keep all points brief and actionable. Avoid extended explanations.`,
             );
         }
 
-        console.log('📊 Final structured data:', JSON.stringify(structuredData, null, 2));
         return structuredData;
     }
 

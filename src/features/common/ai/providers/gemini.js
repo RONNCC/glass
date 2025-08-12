@@ -67,7 +67,7 @@ async function createSTT({ apiKey, language = "en-US", callbacks = {}, ...config
 /**
  * Creates a Gemini LLM instance with proper text response handling
  */
-function createLLM({ apiKey, model = "gemini-2.5-flash", temperature = 0.7, maxTokens = 8192, ...config }) {
+function createLLM({ apiKey, model = "gemini-2.5-flash", temperature = 1, maxTokens = 8192, ...config }) {
   const client = new GoogleGenerativeAI(apiKey)
 
   return {
@@ -77,8 +77,8 @@ function createLLM({ apiKey, model = "gemini-2.5-flash", temperature = 0.7, maxT
         generationConfig: {
           temperature,
           maxOutputTokens: maxTokens,
-          // Ensure we get text responses, not JSON
-          responseMimeType: "text/plain",
+          responseMimeType: (config.responseFormat && config.responseFormat.type === 'json_object') ? 'application/json' : 'text/plain',
+          ...(config.responseSchema ? { responseSchema: config.responseSchema } : {}),
         },
       })
 
@@ -154,8 +154,8 @@ function createLLM({ apiKey, model = "gemini-2.5-flash", temperature = 0.7, maxT
         generationConfig: {
           temperature: temperature,
           maxOutputTokens: maxTokens,
-          // Force plain text responses
-          responseMimeType: "text/plain",
+          responseMimeType: (config.responseFormat && config.responseFormat.type === 'json_object') ? 'application/json' : 'text/plain',
+          ...(config.responseSchema ? { responseSchema: config.responseSchema } : {}),
         },
       })
 
@@ -201,7 +201,7 @@ function createLLM({ apiKey, model = "gemini-2.5-flash", temperature = 0.7, maxT
 /**
  * Creates a Gemini streaming LLM instance with text response fix
  */
-function createStreamingLLM({ apiKey, model = "gemini-2.5-flash", temperature = 0.7, maxTokens = 8192, ...config }) {
+function createStreamingLLM({ apiKey, model = "gemini-2.5-flash", temperature = 1, maxTokens = 8192, ...config }) {
   const client = new GoogleGenerativeAI(apiKey)
 
   return {
@@ -235,8 +235,8 @@ function createStreamingLLM({ apiKey, model = "gemini-2.5-flash", temperature = 
         generationConfig: {
           temperature,
           maxOutputTokens: maxTokens || 8192,
-          // Force plain text responses
-          responseMimeType: "text/plain",
+          responseMimeType: (config.responseFormat && config.responseFormat.type === 'json_object') ? 'application/json' : 'text/plain',
+          ...(config.responseSchema ? { responseSchema: config.responseSchema } : {}),
         },
       })
 

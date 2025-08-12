@@ -64,11 +64,11 @@ async function createSTT({ apiKey, language = "en", callbacks = {}, ...config })
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - Anthropic API key
  * @param {string} [opts.model='claude-3-5-sonnet-20241022'] - Model name
- * @param {number} [opts.temperature=0.7] - Temperature
+ * @param {number} [opts.temperature=1] - Temperature
  * @param {number} [opts.maxTokens=4096] - Max tokens
  * @returns {object} LLM instance
  */
-function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature = 0.7, maxTokens = 4096, ...config }) {
+function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature = 1, maxTokens = 4096, ...config }) {
   const client = new Anthropic({ apiKey })
 
   return {
@@ -107,6 +107,12 @@ function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature =
           temperature: temperature,
           system: systemPrompt || undefined,
           messages: messages,
+          // Prefer concrete schema when provided; otherwise, only pass explicit formats (skip simple json_object hint)
+          ...(
+            config.responseSchema
+              ? { response_format: { type: 'json_schema', json_schema: { name: config.responseSchemaName || 'structured_output', schema: config.responseSchema } } }
+              : (config.responseFormat && config.responseFormat.type !== 'json_object' ? { response_format: config.responseFormat } : {})
+          ),
         })
 
         return {
@@ -174,6 +180,12 @@ function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature =
         temperature: temperature,
         system: systemPrompt || undefined,
         messages: anthropicMessages,
+        // Prefer concrete schema when provided; otherwise, only pass explicit formats (skip simple json_object hint)
+        ...(
+          config.responseSchema
+            ? { response_format: { type: 'json_schema', json_schema: { name: config.responseSchemaName || 'structured_output', schema: config.responseSchema } } }
+            : (config.responseFormat && config.responseFormat.type !== 'json_object' ? { response_format: config.responseFormat } : {})
+        ),
       })
 
       return {
@@ -189,14 +201,14 @@ function createLLM({ apiKey, model = "claude-3-5-sonnet-20241022", temperature =
  * @param {object} opts - Configuration options
  * @param {string} opts.apiKey - Anthropic API key
  * @param {string} [opts.model='claude-3-5-sonnet-20241022'] - Model name
- * @param {number} [opts.temperature=0.7] - Temperature
+ * @param {number} [opts.temperature=1] - Temperature
  * @param {number} [opts.maxTokens=4096] - Max tokens
  * @returns {object} Streaming LLM instance
  */
 function createStreamingLLM({
   apiKey,
   model = "claude-3-5-sonnet-20241022",
-  temperature = 0.7,
+  temperature = 1,
   maxTokens = 4096,
   ...config
 }) {
@@ -270,6 +282,12 @@ function createStreamingLLM({
               system: systemPrompt || undefined,
               messages: anthropicMessages,
               stream: true,
+              // Prefer concrete schema when provided; otherwise, only pass explicit formats (skip simple json_object hint)
+              ...(
+                config.responseSchema
+                  ? { response_format: { type: 'json_schema', json_schema: { name: config.responseSchemaName || 'structured_output', schema: config.responseSchema } } }
+                  : (config.responseFormat && config.responseFormat.type !== 'json_object' ? { response_format: config.responseFormat } : {})
+              ),
             })
 
             for await (const chunk of stream) {
