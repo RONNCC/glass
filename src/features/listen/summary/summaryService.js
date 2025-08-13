@@ -10,7 +10,7 @@ class SummaryService {
     constructor() {
         // How often (in number of conversation turns) to run an AI analysis.
         // Lower value = more frequent insights.
-        this.ANALYSIS_INTERVAL = 4;
+        this.ANALYSIS_INTERVAL = 5;
 
         this.previousAnalysisResult = null;
         this.analysisHistory = [];
@@ -128,21 +128,31 @@ Please build upon this context while analyzing the new conversation segments.
 
 ----
 
-Return ONLY a compact JSON object matching this schema. Do not add any extra text or markdown:
+Begin with a concise checklist (3-7 bullets) of what you will do; keep items conceptual, not implementation-level.
+Review the provided conversation, focusing on questions asked, opportunities for deeper understanding, and suggested follow-ups.
+Especially prioritize detecting interview questions and surfacing areas where you might not have an immediate answer.
+For each, suggest potential follow-up actions or learning points that can proactively help generate a confident response.
+Synthesize your analysis with any previously provided context to ensure a coherent and continuous summary.
+
+Respond with a compact JSON object adhering strictly to this schema:
 {
-  "summary": string[],                 // up to 5 concise bullets
-  "topic": { "header": string, "bullets": string[] }, // up to 3 bullets
-  "actions": string[],                 // up to 5 actionable items, can include leading emojis
-  "followUps": string[]               // up to 3 suggested follow-ups
+  "summary": string[],                    // up to 5 brief, actionable bullet points
+  "topic": { "header": string, "bullets": string[] }, // header string and up to 3 concise bullets
+  "actions": string[],                    // up to 5 direct, actionable items or suggestions for quick research, learning, or information gathering; emojis allowed
+  "followUps": string[]                   // up to 3 suggested follow-ups, including detected questions or prompts for further inquiry, especially those you may not know how to answer
 }
 
 Rules:
-- Keep strings short and actionable
-- Do not include markdown formatting (no **, -, #, etc.)
-- If any field is unavailable, return an empty array or empty string for that field
-- Build upon previous analysis context when provided
+- Strings must be brief and direct
+- No markdown or extra formatting (no asterisks, dashes, heading symbols, etc.)
+- Use [] for empty string arrays and "" for empty header strings when a field cannot be filled
+- Synthesize with any existing analysis context if given
+- Pay close attention in interview scenarios to any questions, knowledge gaps, or follow-up opportunities where more information may be needed
+- Keep the most important or urgent items first within arrays
 
-Analyze the conversation and produce ONLY the JSON object described above.`,
+Output must be a valid JSON object following this schema, with no extra text or formatting. Only return the JSON object.
+
+`,
                 },
             ];
 
