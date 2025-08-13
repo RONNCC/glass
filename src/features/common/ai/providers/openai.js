@@ -39,9 +39,10 @@ class OpenAIProvider {
  * @param {object} [opts.callbacks] - Event callbacks
  * @param {boolean} [opts.usePortkey=false] - Whether to use Portkey
  * @param {string} [opts.portkeyVirtualKey] - Portkey virtual key
+ * @param {string} [opts.model] - STT model id (e.g., 'gpt-4o-mini-transcribe', 'gpt-4o-transcribe')
  * @returns {Promise<object>} STT session
  */
-async function createSTT({ apiKey, language = 'en', callbacks = {}, usePortkey = false, portkeyVirtualKey, ...config }) {
+async function createSTT({ apiKey, language = 'en', callbacks = {}, usePortkey = false, portkeyVirtualKey, model, ...config }) {
   const keyType = usePortkey ? 'vKey' : 'apiKey';
   const key = usePortkey ? (portkeyVirtualKey || apiKey) : apiKey;
 
@@ -66,12 +67,14 @@ async function createSTT({ apiKey, language = 'en', callbacks = {}, usePortkey =
     ws.onopen = () => {
       console.log("WebSocket session opened.");
 
+      const selectedModel = model || 'gpt-4o-mini-transcribe';
+
       const sessionConfig = {
         type: 'transcription_session.update',
         session: {
           input_audio_format: 'pcm16',
           input_audio_transcription: {
-            model: 'gpt-4o-mini-transcribe',
+            model: selectedModel,
             prompt: config.prompt || '',
             language: language || 'en'
           },
@@ -314,7 +317,7 @@ function createStreamingLLM({ apiKey, model = 'gpt-4.1', temperature = 1.0, maxT
           stream: true,
           ...(() => {
             if (config.responseSchema) {
-              return { response_format: { type: 'json_schema', json_schema: { name: config.responseSchemaName || 'structured_output', schema: config.responseSchema } } };
+              return { response_format: { type: 'json_schema', json_schema: { name: 'structured_output', schema: config.responseSchema } } };
             }
             return (config.responseFormat ? { response_format: config.responseFormat } : {});
           })()

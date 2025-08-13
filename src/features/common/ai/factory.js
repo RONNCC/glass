@@ -26,7 +26,8 @@ const PROVIDERS = {
           { id: 'gpt-5', name: 'GPT-5' },
       ],
       sttModels: [
-          { id: 'gpt-4o-mini-transcribe', name: 'GPT-4o Mini Transcribe' }
+          { id: 'gpt-4o-mini-transcribe', name: 'GPT-4o Mini Transcribe' },
+          { id: 'gpt-4o-transcribe', name: 'GPT-4o Transcribe' }
       ],
   },
 
