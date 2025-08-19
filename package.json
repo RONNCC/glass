@@ -8,6 +8,8 @@
         "start": "pnpm run intv",
         "predev": "pnpm install --silent && pnpm -C pickleglass_web install --silent && pnpm exec electron-builder install-app-deps",
         "dev": "pnpm run build:renderer && NO_DEVTOOLS=1 NODE_ENV=development electron .",
+        "predev:tools": "pnpm install --silent && pnpm -C pickleglass_web install --silent && pnpm exec electron-builder install-app-deps",
+        "dev:tools": "pnpm run build:renderer && NODE_ENV=development electron .",
         "dev:watch": "nodemon",
         "preintv": "pnpm install --silent && pnpm -C pickleglass_web install --silent && pnpm exec electron-builder install-app-deps",
         "intv": "pnpm run build:renderer && NO_DEVTOOLS=1 APP_MODE=intv NODE_ENV=production electron .",
