@@ -194,6 +194,13 @@ const SidebarComponent = ({ isCollapsed, onToggle, onSearchClick }: SidebarProps
                 ariaLabel: 'Personalization settings',
             },
             {
+                name: 'Notes',
+                href: '/notes',
+                icon: '/symbol.svg',
+                isLucide: false,
+                ariaLabel: 'View and manage notes',
+            },
+            {
                 name: 'Settings',
                 href: '/settings',
                 icon: '/setting.svg',

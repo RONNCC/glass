@@ -53,24 +53,18 @@ export default function LoginPage() {
             alert('Login was successful but failed to return to app. Please check the app.')
           }
         } 
-        else if (typeof window !== 'undefined' && window.require) {
-          try {
-            const { ipcRenderer } = window.require('electron')
-            const idToken = await user.getIdToken()
-            
-            ipcRenderer.send('firebase-auth-success', {
-              uid: user.uid,
-              displayName: user.displayName,
-              email: user.email,
-              idToken
-            })
-            
-            console.log('📡 Auth info sent to electron successfully')
-          } catch (error) {
-            console.error('❌ Electron communication failed:', error)
-          }
-        } 
         else {
+          // Notify desktop backend to switch to Firebase mode as well
+          try {
+            const idToken = await user.getIdToken();
+            await fetch('/api/auth/signin', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ idToken })
+            });
+          } catch (err) {
+            console.warn('Failed to notify desktop backend signin (non-critical):', (err as any)?.message);
+          }
           router.push('/settings')
         }
       }

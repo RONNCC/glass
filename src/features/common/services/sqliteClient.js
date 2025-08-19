@@ -237,6 +237,24 @@ class SQLiteClient {
             stmt.run(preset[0], this.defaultUserId, preset[1], preset[2], preset[3], now);
         }
 
+        // Seed default sample note if notes table exists and is empty
+        try {
+            const hasNotesTable = this.getTablesFromDb().includes('notes');
+            if (hasNotesTable) {
+                const row = this.db.prepare('SELECT COUNT(*) as c FROM notes').get();
+                if ((row?.c || 0) === 0) {
+                    const id = require('crypto').randomUUID();
+                    const title = 'Sample note';
+                    const content = '# Welcome to Notes\n\nUse this page to manage notes.\n\n- Markdown supported (lists, code blocks, links)\n- Click a note to edit; press Save to keep changes.';
+                    this.db.prepare(`INSERT OR IGNORE INTO notes (id, uid, title, content, created_at, updated_at, sync_state) VALUES (?, ?, ?, ?, ?, ?, 'clean')`)
+                        .run(id, this.defaultUserId, title, content, now, now);
+                    console.log('[DB Seed] Inserted default sample note into SQLite notes table.');
+                }
+            }
+        } catch (e) {
+            console.warn('[DB Seed] Could not seed default note:', e?.message || e);
+        }
+
         console.log('Default data initialized.');
     }
 

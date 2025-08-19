@@ -542,9 +542,12 @@ export class MainHeader extends LitElement {
     async toggleNotesWindow() {
         if (this.wasJustDragged) return;
         if (!window.api) return;
-        // naive toggle: ask main to show; if already visible, it will be left visible unless we explicitly close
-        // We will simply show; closing will be done from NotesView X button
+        // Always show the notes window, and ask it to refresh its data shortly after
         window.api.mainHeader.showNotesWindow();
+        // Give the window a moment to mount, then signal a refresh
+        setTimeout(() => {
+            try { window.api?.notes?.list?.(); } catch {}
+        }, 150);
     }
 
     async _handleListenClick() {

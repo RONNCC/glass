@@ -76,7 +76,7 @@ export class FirestoreUserService {
   static async getUser(uid: string): Promise<FirestoreUserProfile | null> {
     const userRef = doc(firestore, 'users', uid);
     const userSnap = await getDoc(userRef);
-    return userSnap.exists() ? userSnap.data() as FirestoreUserProfile : null;
+    return userSnap.exists() ? (userSnap.data() as FirestoreUserProfile) : null;
   }
 
   static async updateUser(uid: string, updates: Partial<FirestoreUserProfile>) {
@@ -131,7 +131,7 @@ export class FirestoreSessionService {
   static async getSession(uid: string, sessionId: string): Promise<FirestoreSession | null> {
     const sessionRef = doc(firestore, 'users', uid, 'sessions', sessionId);
     const sessionSnap = await getDoc(sessionRef);
-    return sessionSnap.exists() ? sessionSnap.data() as FirestoreSession : null;
+    return sessionSnap.exists() ? (sessionSnap.data() as FirestoreSession) : null;
   }
 
   static async getSessions(uid: string): Promise<Array<{ id: string } & FirestoreSession>> {
@@ -141,7 +141,7 @@ export class FirestoreSessionService {
     
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data() as FirestoreSession
+      ...(doc.data() as FirestoreSession)
     }));
   }
 
@@ -188,7 +188,7 @@ export class FirestoreTranscriptService {
     
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data() as FirestoreTranscript
+      ...(doc.data() as FirestoreTranscript)
     }));
   }
 }
@@ -210,7 +210,7 @@ export class FirestoreAiMessageService {
     
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data() as FirestoreAiMessage
+      ...(doc.data() as FirestoreAiMessage)
     }));
   }
 }
@@ -224,7 +224,7 @@ export class FirestoreSummaryService {
   static async getSummary(uid: string, sessionId: string): Promise<FirestoreSummary | null> {
     const summaryRef = doc(firestore, 'users', uid, 'sessions', sessionId, 'summary', 'data');
     const summarySnap = await getDoc(summaryRef);
-    return summarySnap.exists() ? summarySnap.data() as FirestoreSummary : null;
+    return summarySnap.exists() ? (summarySnap.data() as FirestoreSummary) : null;
   }
 }
 
@@ -245,7 +245,7 @@ export class FirestorePromptPresetService {
     
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data() as FirestorePromptPreset
+      ...(doc.data() as FirestorePromptPreset)
     }));
   }
 
@@ -257,5 +257,51 @@ export class FirestorePromptPresetService {
   static async deletePreset(uid: string, presetId: string) {
     const presetRef = doc(firestore, 'users', uid, 'promptPresets', presetId);
     await deleteDoc(presetRef);
+  }
+}
+
+export interface FirestoreNote {
+  title: string;
+  content: string; // markdown
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export class FirestoreNotesService {
+  static collectionRef(uid: string) {
+    return collection(firestore, 'users', uid, 'notes');
+  }
+
+  static async createNote(uid: string, note: Omit<FirestoreNote, 'createdAt' | 'updatedAt'>): Promise<string> {
+    const notesRef = this.collectionRef(uid);
+    const docRef = await addDoc(notesRef, {
+      ...note,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return docRef.id;
+  }
+
+  static async getNotes(uid: string): Promise<Array<{ id: string } & FirestoreNote>> {
+    const notesRef = this.collectionRef(uid);
+    const q = query(notesRef, orderBy('updatedAt', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...(d.data() as FirestoreNote) }));
+  }
+
+  static async getNote(uid: string, noteId: string): Promise<(FirestoreNote & { id: string }) | null> {
+    const noteRef = doc(firestore, 'users', uid, 'notes', noteId);
+    const snap = await getDoc(noteRef);
+    return snap.exists() ? ({ id: snap.id, ...(snap.data() as FirestoreNote) }) : null;
+  }
+
+  static async updateNote(uid: string, noteId: string, updates: Partial<Omit<FirestoreNote, 'createdAt' | 'updatedAt'>>) {
+    const noteRef = doc(firestore, 'users', uid, 'notes', noteId);
+    await updateDoc(noteRef, { ...updates, updatedAt: serverTimestamp() });
+  }
+
+  static async deleteNote(uid: string, noteId: string) {
+    const noteRef = doc(firestore, 'users', uid, 'notes', noteId);
+    await deleteDoc(noteRef);
   }
 } 

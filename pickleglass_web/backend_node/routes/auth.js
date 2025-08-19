@@ -21,4 +21,26 @@ router.get('/status', async (req, res) => {
     }
 });
 
+router.post('/signin', async (req, res) => {
+    try {
+        const { idToken } = req.body || {};
+        if (!idToken) return res.status(400).json({ error: 'Missing idToken' });
+        await ipcRequest(req, 'auth:sign-in-idtoken', { idToken });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Failed to sign in via IPC:', error);
+        res.status(500).json({ error: 'Failed to sign in' });
+    }
+});
+
+router.post('/signout', async (_req, res) => {
+    try {
+        await ipcRequest(_req, 'auth:sign-out');
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Failed to sign out via IPC:', error);
+        res.status(500).json({ error: 'Failed to sign out' });
+    }
+});
+
 module.exports = router;

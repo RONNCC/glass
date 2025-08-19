@@ -311,5 +311,15 @@ contextBridge.exposeInMainWorld('api', {
     // Listeners
     onChangeListenCaptureState: (callback) => ipcRenderer.on('change-listen-capture-state', callback),
     removeOnChangeListenCaptureState: (callback) => ipcRenderer.removeListener('change-listen-capture-state', callback)
-  }
+  },
+
+  // Notes CRUD namespace
+  notes: {
+    list: () => ipcRenderer.invoke('notes:list'),
+    create: (title, content) => ipcRenderer.invoke('notes:create', { title, content }),
+    update: (id, title, content) => ipcRenderer.invoke('notes:update', { id, title, content }),
+    delete: (id) => ipcRenderer.invoke('notes:delete', { id }),
+    onRefresh: (callback) => ipcRenderer.on('notes:refresh', callback),
+    removeOnRefresh: (callback) => ipcRenderer.removeListener('notes:refresh', callback),
+  },
 });

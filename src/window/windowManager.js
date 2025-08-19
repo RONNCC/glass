@@ -346,6 +346,9 @@ async function handleWindowVisibilityRequest(windowPool, layoutManager, movement
                 win.show();
                 win.moveTop();
                 win.setAlwaysOnTop(true);
+                if (!isSettings) {
+                    try { win.webContents.send('notes:refresh'); } catch {}
+                }
             } else {
                 console.warn(`[WindowManager] Could not calculate ${name} window position.`);
             }

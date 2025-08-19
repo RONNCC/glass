@@ -85,6 +85,12 @@ export interface SessionDetails {
     summary: Summary | null;
 }
 
+export interface NoteItem {
+  id: string;
+  title: string;
+  content: string;
+}
+
 
 const isFirebaseMode = (): boolean => {
   // The web frontend can no longer directly access Firebase state,
@@ -586,4 +592,32 @@ export const logout = async () => {
   localStorage.removeItem('user_info');
   
   window.location.href = '/login';
+}; 
+
+export const getNotes = async (): Promise<NoteItem[]> => {
+  const response = await apiCall(`/api/notes`, { method: 'GET' });
+  if (!response.ok) throw new Error('Failed to fetch notes');
+  return response.json();
+};
+
+export const createNote = async (data: { title: string; content: string }): Promise<{ id: string }> => {
+  const response = await apiCall(`/api/notes`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to create note');
+  return response.json();
+};
+
+export const updateNote = async (id: string, data: { title: string; content: string }): Promise<void> => {
+  const response = await apiCall(`/api/notes/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Failed to update note');
+};
+
+export const deleteNote = async (id: string): Promise<void> => {
+  const response = await apiCall(`/api/notes/${id}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('Failed to delete note');
 }; 

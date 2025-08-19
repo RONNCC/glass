@@ -12,6 +12,7 @@ const askService = require('../features/ask/askService');
 const listenService = require('../features/listen/listenService');
 const permissionService = require('../features/common/services/permissionService');
 const encryptionService = require('../features/common/services/encryptionService');
+const notesRepository = require('../features/common/repositories/notes');
 
 module.exports = {
   // Renderer로부터의 요청을 수신하고 서비스로 전달
@@ -31,6 +32,28 @@ module.exports = {
     ipcMain.handle('settings:get-ollama-status', async () => await settingsService.getOllamaStatus());
     ipcMain.handle('settings:ensure-ollama-ready', async () => await settingsService.ensureOllamaReady());
     ipcMain.handle('settings:shutdown-ollama', async () => await settingsService.shutdownOllama());
+
+    // Notes CRUD
+    ipcMain.handle('notes:list', async () => {
+      const user = authService.getCurrentUser();
+      const uid = user?.uid || 'default_user';
+      return await notesRepository.list(uid);
+    });
+    ipcMain.handle('notes:create', async (e, { title, content }) => {
+      const user = authService.getCurrentUser();
+      const uid = user?.uid || 'default_user';
+      return await notesRepository.create(uid, { title, content });
+    });
+    ipcMain.handle('notes:update', async (e, { id, title, content }) => {
+      const user = authService.getCurrentUser();
+      const uid = user?.uid || 'default_user';
+      return await notesRepository.update(id, uid, { title, content });
+    });
+    ipcMain.handle('notes:delete', async (e, { id }) => {
+      const user = authService.getCurrentUser();
+      const uid = user?.uid || 'default_user';
+      return await notesRepository.delete(id, uid);
+    });
 
     // Shortcuts
     ipcMain.handle('settings:getCurrentShortcuts', async () => await shortcutsService.loadKeybinds());

@@ -321,6 +321,7 @@ function setupWebDataHandlers() {
     const askRepository = require('./features/ask/repositories');
     const userRepository = require('./features/common/repositories/user');
     const presetRepository = require('./features/common/repositories/preset');
+    const notesRepository = require('./features/common/repositories/notes');
 
     const handleRequest = async (channel, responseChannel, payload) => {
         let result;
@@ -403,6 +404,56 @@ function setupWebDataHandlers() {
                     result = await presetRepository.delete(payload);
                     settingsService.notifyPresetUpdate('deleted', payload);
                     break;
+                
+                // NOTES
+                case 'notes:list':
+                    result = await notesRepository.list();
+                    break;
+                case 'notes:create':
+                    result = await notesRepository.create(payload);
+                    break;
+                case 'notes:update':
+                    result = await notesRepository.update(payload.id, { title: payload.title, content: payload.content });
+                    break;
+                case 'notes:delete':
+                    result = await notesRepository.delete(payload.id);
+                    break;
+                
+                // AUTH (web→desktop mode sync)
+                case 'auth:sign-in-idtoken': {
+                    const { token, idToken } = payload || {};
+                    const effectiveToken = idToken || token;
+                    if (!effectiveToken) throw new Error('Missing idToken');
+
+                    // Reuse the same flow as deep-link login: exchange ID token -> custom token -> sign in
+                    const functionUrl = 'https://us-west1-pickle-3651a.cloudfunctions.net/pickleGlassAuthCallback';
+                    const response = await fetch(functionUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: effectiveToken })
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.error || 'Failed to exchange token.');
+                    }
+                    const { customToken, user } = data;
+
+                    const firebaseUser = {
+                        uid: user.uid,
+                        email: user.email || 'no-email@example.com',
+                        displayName: user.name || 'User',
+                        photoURL: user.picture
+                    };
+                    await userRepository.findOrCreate(firebaseUser);
+                    await authService.signInWithCustomToken(customToken);
+                    result = { success: true };
+                    break;
+                }
+                case 'auth:sign-out': {
+                    await authService.signOut();
+                    result = { success: true };
+                    break;
+                }
                 
                 // BATCH
                 case 'get-batch-data':

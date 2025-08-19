@@ -14,6 +14,7 @@ export class NotesView extends LitElement {
                 overflow: hidden;
             }
             .content { max-height: 680px; }
+            .hint { color: rgba(255,255,255,0.6); font-size: 11px; }
         `,
         panelBaseStyles,
         markdownStyles,
@@ -28,21 +29,30 @@ export class NotesView extends LitElement {
 
     constructor() {
         super();
-        const savedNotesRaw = localStorage.getItem('glass_notes') || '[]';
-        let savedNotes = [];
-        try { savedNotes = JSON.parse(savedNotesRaw); } catch { savedNotes = []; }
-        const hasSample = savedNotes.some(n => n.id === 'sample');
-        if (!hasSample) {
-            savedNotes.unshift({
-                id: 'sample',
-                title: 'Sample note',
-                content: '# Welcome to Notes\n\nUse this to keep quick docs/snippets.\n\n- Markdown supported (lists, code blocks, links)\n- Hover over the note icon to open\n- Move your mouse away to hide\n\n```js\nconsole.log(\'Hello from sample note!\');\n```\n\n[Pickle Glass](https://github.com/qwopqwop200/PickGlass)'
-            });
-            localStorage.setItem('glass_notes', JSON.stringify(savedNotes));
-        }
-        this.notes = savedNotes;
-        this.selectedId = this.notes[0]?.id || '';
+        this.notes = [];
+        this.selectedId = '';
         this._renderedHtml = '';
+    }
+
+    async _loadNotes() {
+        try {
+            const items = await window.api?.notes?.list?.();
+            if (Array.isArray(items)) {
+                this.notes = items;
+                if (!this.selectedId && items.length > 0) this.selectedId = items[0].id;
+            }
+        } catch {}
+    }
+
+    async _seedIfEmpty() {
+        if (this.notes.length > 0) return;
+        const title = 'Sample note';
+        const content = '# Welcome to Notes\n\nUse this page to manage notes.\n\n- Markdown supported (lists, code blocks, links)\n- Visit the web Notes tab to create and edit.';
+        try {
+            const res = await window.api?.notes?.create?.(title, content);
+            await this._loadNotes();
+            if (res?.id) this.selectedId = res.id;
+        } catch {}
     }
 
     connectedCallback() {
@@ -52,7 +62,18 @@ export class NotesView extends LitElement {
             this._requestHeightFit();
         };
         this.addEventListener('mouseenter', this._enter);
-        setTimeout(() => { this._renderMarkdown(); this._requestHeightFit(); }, 50);
+        this._onRefresh = async () => {
+            await this._loadNotes();
+            this._renderMarkdown();
+            this._requestHeightFit();
+        };
+        window.api?.notes?.onRefresh?.(this._onRefresh);
+        setTimeout(async () => {
+            await this._loadNotes();
+            await this._seedIfEmpty();
+            this._renderMarkdown();
+            this._requestHeightFit();
+        }, 50);
 
         this._onClick = (e) => {
             const anchor = e.composedPath().find(el => el && el.tagName === 'A');
@@ -72,6 +93,7 @@ export class NotesView extends LitElement {
         super.disconnectedCallback();
         if (this._enter) this.removeEventListener('mouseenter', this._enter);
         if (this._onClick) this.removeEventListener('click', this._onClick);
+        if (this._onRefresh) window.api?.notes?.removeOnRefresh?.(this._onRefresh);
     }
 
     updated(changed) {
@@ -84,22 +106,16 @@ export class NotesView extends LitElement {
     _requestHeightFit() {
         const content = this.shadowRoot?.querySelector('.content');
         if (!content || !window.api?.askView?.adjustWindowHeight) return;
-        const baseChrome = 56; // approx header + paddings inside window
+        const baseChrome = 56; // header + paddings
         const desired = Math.min(720, baseChrome + content.scrollHeight);
         window.api.askView.adjustWindowHeight('notes', desired).catch(() => {});
     }
 
-    _onSelect(e) {
-        this.selectedId = e.target.value;
-    }
+    _onSelect(e) { this.selectedId = e.target.value; }
 
-    _close() {
-        if (window.api?.mainHeader?.hideNotesWindow) window.api.mainHeader.hideNotesWindow();
-    }
+    _close() { if (window.api?.mainHeader?.hideNotesWindow) window.api.mainHeader.hideNotesWindow(); }
 
-    get selectedNote() {
-        return this.notes.find(n => n.id === this.selectedId) || { content: '' };
-    }
+    get selectedNote() { return this.notes.find(n => n.id === this.selectedId) || { content: '' }; }
 
     _renderMarkdown() {
         try {
@@ -116,7 +132,7 @@ export class NotesView extends LitElement {
         return html`
             <div class="container">
                 <div class="title-row">
-                    <div class="left-title">
+                    <div class="left-title" style="gap:6px;">
                         <div class="title">Notes</div>
                         <select @change=${(e) => this._onSelect(e)} .value=${this.selectedId}>
                             ${this.notes.map(n => html`<option value=${n.id}>${n.title}</option>`)}
