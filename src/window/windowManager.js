@@ -145,9 +145,17 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
         if (header) {
             const newPosition = layoutManager.calculateNewPositionForDisplay(header, displayId);
             if (newPosition) {
+                const futureHeaderBounds = { ...header.getBounds(), ...newPosition };
+                const notesWin = windowPool.get('notes');
+                let notesTarget = null;
+                if (notesWin && !notesWin.isDestroyed() && notesWin.isVisible()) {
+                    notesTarget = layoutManager.calculateNotesWindowPosition(futureHeaderBounds);
+                }
+
                 movementManager.animateWindowPosition(header, newPosition, {
                     onComplete: () => updateChildWindowLayouts(true)
                 });
+                if (notesTarget) movementManager.animateWindowPosition(notesWin, notesTarget);
             }
         }
     });
@@ -155,9 +163,16 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
         const header = windowPool.get('header');
         if (header) {
             const newPosition = layoutManager.calculateEdgePosition(header, direction);
+            const futureHeaderBounds = newPosition ? { ...header.getBounds(), ...newPosition } : null;
+            const notesWin = windowPool.get('notes');
+            let notesTarget = null;
+            if (futureHeaderBounds && notesWin && !notesWin.isDestroyed() && notesWin.isVisible()) {
+                notesTarget = layoutManager.calculateNotesWindowPosition(futureHeaderBounds);
+            }
             movementManager.animateWindowPosition(header, newPosition, { 
                 onComplete: () => updateChildWindowLayouts(true) 
             });
+            if (notesTarget) movementManager.animateWindowPosition(notesWin, notesTarget);
         }
     });
 
@@ -171,6 +186,7 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
             const visibleWindows = {};
             const listenWin = windowPool.get('listen');
             const askWin = windowPool.get('ask');
+            const notesWin = windowPool.get('notes');
             if (listenWin && !listenWin.isDestroyed() && listenWin.isVisible()) {
                 visibleWindows.listen = true;
             }
@@ -179,9 +195,18 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
             }
 
             const newChildLayout = layoutManager.calculateFeatureWindowLayout(visibleWindows, futureHeaderBounds);
+
+            // Also compute notes position if visible
+            let notesTarget = null;
+            if (notesWin && !notesWin.isDestroyed() && notesWin.isVisible()) {
+                notesTarget = layoutManager.calculateNotesWindowPosition(futureHeaderBounds);
+            }
     
             movementManager.animateWindowPosition(header, newHeaderPosition);
             movementManager.animateLayout(newChildLayout);
+            if (notesTarget) {
+                movementManager.animateWindowPosition(notesWin, notesTarget);
+            }
         }
     });
 
@@ -339,7 +364,9 @@ async function handleWindowVisibilityRequest(windowPool, layoutManager, movement
                 clearTimeout(isSettings ? settingsHideTimer : notesHideTimer);
                 if (isSettings) settingsHideTimer = null; else notesHideTimer = null;
             }
-            const position = isSettings ? layoutManager.calculateSettingsWindowPosition() : layoutManager.calculateNotesWindowPosition();
+            const header = windowPool.get('header');
+            const headerBounds = header && !header.isDestroyed() ? header.getBounds() : null;
+            const position = isSettings ? layoutManager.calculateSettingsWindowPosition() : layoutManager.calculateNotesWindowPosition(headerBounds);
             if (position) {
                 win.setBounds(position);
                 win.__lockedByButton = true;

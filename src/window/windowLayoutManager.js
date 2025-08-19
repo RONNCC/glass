@@ -98,7 +98,7 @@ class WindowLayoutManager {
     /**
      * @returns {{x: number, y: number} | null}
      */
-    calculateNotesWindowPosition() {
+    calculateNotesWindowPosition(headerBoundsOverride = null) {
         const header = this.windowPool.get('header');
         const notes = this.windowPool.get('notes');
 
@@ -106,7 +106,7 @@ class WindowLayoutManager {
             return null;
         }
 
-        const headerBounds = header.getBounds();
+        const headerBounds = headerBoundsOverride || header.getBounds();
         const notesBounds = notes.getBounds();
         const display = getCurrentDisplay(header);
         const { x: workAreaX, y: workAreaY, width: screenWidth, height: screenHeight } = display.workArea;
