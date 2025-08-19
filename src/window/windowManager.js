@@ -613,7 +613,7 @@ function createFeatureWindows(header, namesToCreate) {
 
             // notes
             case 'notes': {
-                const notes = new BrowserWindow({ ...commonChildOptions, width:353, maxHeight:720, parent:undefined });
+                const notes = new BrowserWindow({ ...commonChildOptions, width:380, maxHeight:820, parent:undefined });
                 notes.setContentProtection(isContentProtectionOn);
                 notes.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
                 if (process.platform === 'darwin') {

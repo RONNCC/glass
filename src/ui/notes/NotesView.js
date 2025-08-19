@@ -6,15 +6,37 @@ export class NotesView extends LitElement {
         css`
             :host {
                 display: block;
-                width: 353px;
+                width: 380px;
                 box-sizing: border-box;
                 color: white;
                 background: rgba(0, 0, 0, 0.6);
                 border-radius: 12px;
                 overflow: hidden;
             }
-            .content { max-height: 680px; }
+            .content { max-height: 780px; }
             .hint { color: rgba(255,255,255,0.6); font-size: 11px; }
+
+            /* Inline highlight.js theme (GitHub dark-ish) for shadow DOM */
+            .content pre code.hljs {
+                display: block;
+                overflow-x: auto;
+                padding: 10px;
+                color: #c9d1d9;
+                background: #0d1117;
+                border-radius: 6px;
+            }
+            .content code.hljs { padding: 2px 4px; }
+            .hljs-comment, .hljs-quote { color: #8b949e; font-style: italic; }
+            .hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-type, .hljs-addition { color: #ff7b72; }
+            .hljs-number, .hljs-string, .hljs-doctag, .hljs-regexp { color: #a5d6ff; }
+            .hljs-title, .hljs-section, .hljs-name { color: #d2a8ff; }
+            .hljs-attr, .hljs-attribute { color: #79c0ff; }
+            .hljs-built_in, .hljs-builtin-name { color: #ffa657; }
+            .hljs-params { color: #c9d1d9; }
+            .hljs-bullet, .hljs-code { color: #d2a8ff; }
+            .hljs-meta { color: #79c0ff; }
+            .hljs-emphasis { font-style: italic; }
+            .hljs-strong { font-weight: 700; }
         `,
         panelBaseStyles,
         markdownStyles,
@@ -99,6 +121,9 @@ export class NotesView extends LitElement {
     updated(changed) {
         if (changed.has('selectedId')) {
             this._renderMarkdown();
+        }
+        if (changed.has('_renderedHtml')) {
+            this._applySyntaxHighlighting();
             this._requestHeightFit();
         }
     }
@@ -107,7 +132,7 @@ export class NotesView extends LitElement {
         const content = this.shadowRoot?.querySelector('.content');
         if (!content || !window.api?.askView?.adjustWindowHeight) return;
         const baseChrome = 56; // header + paddings
-        const desired = Math.min(720, baseChrome + content.scrollHeight);
+        const desired = Math.min(820, baseChrome + content.scrollHeight);
         window.api.askView.adjustWindowHeight('notes', desired).catch(() => {});
     }
 
@@ -126,6 +151,17 @@ export class NotesView extends LitElement {
         } catch (e) {
             this._renderedHtml = this.selectedNote.content || '';
         }
+    }
+
+    _applySyntaxHighlighting() {
+        try {
+            const root = this.shadowRoot;
+            if (!root || !window.hljs) return;
+            const blocks = root.querySelectorAll('pre code');
+            blocks.forEach((block) => {
+                try { window.hljs.highlightElement(block); } catch {}
+            });
+        } catch {}
     }
 
     render() {
