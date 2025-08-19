@@ -95,6 +95,35 @@ class WindowLayoutManager {
         return { x: Math.round(clampedX), y: Math.round(clampedY) };
     }
 
+    /**
+     * @returns {{x: number, y: number} | null}
+     */
+    calculateNotesWindowPosition() {
+        const header = this.windowPool.get('header');
+        const notes = this.windowPool.get('notes');
+
+        if (!header || header.isDestroyed() || !notes || notes.isDestroyed()) {
+            return null;
+        }
+
+        const headerBounds = header.getBounds();
+        const notesBounds = notes.getBounds();
+        const display = getCurrentDisplay(header);
+        const { x: workAreaX, y: workAreaY, width: screenWidth, height: screenHeight } = display.workArea;
+
+        const PAD = 5;
+        // Place notes window slightly left of settings icon; adjust offset to align under the notes icon
+        const buttonPadding = 140;
+
+        const x = headerBounds.x + headerBounds.width - notesBounds.width + buttonPadding;
+        const y = headerBounds.y + headerBounds.height + PAD;
+
+        const clampedX = Math.max(workAreaX + 10, Math.min(workAreaX + screenWidth - notesBounds.width - 10, x));
+        const clampedY = Math.max(workAreaY + 10, Math.min(workAreaY + screenHeight - notesBounds.height - 10, y));
+
+        return { x: Math.round(clampedX), y: Math.round(clampedY) };
+    }
+
 
     calculateHeaderResize(header, { width, height }) {
         if (!header) return null;

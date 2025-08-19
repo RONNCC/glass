@@ -51,6 +51,9 @@ const windowPool = new Map();
 let settingsHideTimer = null;
 const SETTINGS_HIDE_DELAY_MS = 400;
 
+let notesHideTimer = null;
+const NOTES_HIDE_DELAY_MS = 400;
+
 
 let layoutManager = null;
 let movementManager = null;
@@ -85,6 +88,19 @@ const hideSettingsWindow = () => {
 
 const cancelHideSettingsWindow = () => {
     internalBridge.emit('window:requestVisibility', { name: 'settings', visible: true });
+};
+
+// Notes window controls
+const showNotesWindow = () => {
+    internalBridge.emit('window:requestVisibility', { name: 'notes', visible: true });
+};
+
+const hideNotesWindow = () => {
+    internalBridge.emit('window:requestVisibility', { name: 'notes', visible: false });
+};
+
+const cancelHideNotesWindow = () => {
+    internalBridge.emit('window:requestVisibility', { name: 'notes', visible: true });
 };
 
 const moveWindowStep = (direction) => {
@@ -269,7 +285,7 @@ function changeAllWindowsVisibility(windowPool, targetVisibility) {
  * @param {Map<string, BrowserWindow>} windowPool
  * @param {WindowLayoutManager} layoutManager 
  * @param {SmoothMovementManager} movementManager
- * @param {'listen' | 'ask' | 'settings' | 'shortcut-settings'} name 
+ * @param {'listen' | 'ask' | 'settings' | 'shortcut-settings' | 'notes'} name 
  * @param {boolean} shouldBeVisible 
  */
 async function handleWindowVisibilityRequest(windowPool, layoutManager, movementManager, name, shouldBeVisible) {
@@ -291,7 +307,7 @@ async function handleWindowVisibilityRequest(windowPool, layoutManager, movement
         }
     }
 
-    if (name !== 'settings') {
+    if (name !== 'settings' && name !== 'notes') {
         const isCurrentlyVisible = win.isVisible();
         if (isCurrentlyVisible === shouldBeVisible) {
             console.log(`[WindowManager] Window '${name}' is already in the desired state.`);
@@ -313,14 +329,17 @@ async function handleWindowVisibilityRequest(windowPool, layoutManager, movement
         }
     };
 
-    if (name === 'settings') {
+    if (name === 'settings' || name === 'notes') {
+        const isSettings = name === 'settings';
+        const hideTimerRef = isSettings ? 'settingsHideTimer' : 'notesHideTimer';
+        const HIDE_DELAY_MS = isSettings ? SETTINGS_HIDE_DELAY_MS : NOTES_HIDE_DELAY_MS;
         if (shouldBeVisible) {
             // Cancel any pending hide operations
-            if (settingsHideTimer) {
-                clearTimeout(settingsHideTimer);
-                settingsHideTimer = null;
+            if (isSettings ? settingsHideTimer : notesHideTimer) {
+                clearTimeout(isSettings ? settingsHideTimer : notesHideTimer);
+                if (isSettings) settingsHideTimer = null; else notesHideTimer = null;
             }
-            const position = layoutManager.calculateSettingsWindowPosition();
+            const position = isSettings ? layoutManager.calculateSettingsWindowPosition() : layoutManager.calculateNotesWindowPosition();
             if (position) {
                 win.setBounds(position);
                 win.__lockedByButton = true;
@@ -328,22 +347,27 @@ async function handleWindowVisibilityRequest(windowPool, layoutManager, movement
                 win.moveTop();
                 win.setAlwaysOnTop(true);
             } else {
-                console.warn('[WindowManager] Could not calculate settings window position.');
+                console.warn(`[WindowManager] Could not calculate ${name} window position.`);
             }
         } else {
-            // Hide after a delay
-            if (settingsHideTimer) {
-                clearTimeout(settingsHideTimer);
-            }
-            settingsHideTimer = setTimeout(() => {
+            if (isSettings) {
+                // Settings still hides after a delay on mouseout
+                if (settingsHideTimer) clearTimeout(settingsHideTimer);
+                settingsHideTimer = setTimeout(() => {
+                    if (win && !win.isDestroyed()) {
+                        win.setAlwaysOnTop(false);
+                        win.hide();
+                    }
+                    settingsHideTimer = null;
+                }, SETTINGS_HIDE_DELAY_MS);
+                win.__lockedByButton = false;
+            } else {
+                // Notes: hide immediately (explicit close only)
                 if (win && !win.isDestroyed()) {
                     win.setAlwaysOnTop(false);
                     win.hide();
                 }
-                settingsHideTimer = null;
-            }, SETTINGS_HIDE_DELAY_MS);
-
-            win.__lockedByButton = false;
+            }
         }
         return;
     }
@@ -507,6 +531,8 @@ function createFeatureWindows(header, namesToCreate) {
                         }
                     });
                 }
+                
+                // Open DevTools in development
                 if (shouldOpenDevTools) {
                     listen.webContents.openDevTools({ mode: 'detach' });
                 }
@@ -514,9 +540,10 @@ function createFeatureWindows(header, namesToCreate) {
                 break;
             }
 
-            // ask
             case 'ask': {
-                const ask = new BrowserWindow({ ...commonChildOptions, width:600 });
+                const ask = new BrowserWindow({
+                    ...commonChildOptions, width:353,height:720,modal:false,parent:undefined,alwaysOnTop:false,titleBarOverlay:false,
+                });
                 ask.setContentProtection(isContentProtectionOn);
                 ask.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
                 if (process.platform === 'darwin') {
@@ -581,6 +608,48 @@ function createFeatureWindows(header, namesToCreate) {
                 break;
             }
 
+            // notes
+            case 'notes': {
+                const notes = new BrowserWindow({ ...commonChildOptions, width:353, maxHeight:720, parent:undefined });
+                notes.setContentProtection(isContentProtectionOn);
+                notes.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
+                if (process.platform === 'darwin') {
+                    notes.setWindowButtonVisibility(false);
+                }
+
+                // Open external links in default browser instead of navigating
+                notes.webContents.setWindowOpenHandler(({ url }) => {
+                    try { shell.openExternal(url); } catch {}
+                    return { action: 'deny' };
+                });
+                notes.webContents.on('will-navigate', (event, url) => {
+                    event.preventDefault();
+                    try { shell.openExternal(url); } catch {}
+                });
+
+                const notesLoadOptions = { query: { view: 'notes' } };
+                if (!shouldUseLiquidGlass) {
+                    notes.loadFile(path.join(__dirname,'../ui/app/content.html'), notesLoadOptions)
+                        .catch(console.error);
+                }
+                else {
+                    notesLoadOptions.query.glass = 'true';
+                    notes.loadFile(path.join(__dirname,'../ui/app/content.html'), notesLoadOptions)
+                        .catch(console.error);
+                    notes.webContents.once('did-finish-load', () => {
+                        const viewId = liquidGlass.addView(notes.getNativeWindowHandle());
+                        if (viewId !== -1) {
+                            liquidGlass.unstable_setVariant(viewId, liquidGlass.GlassMaterialVariant.bubbles);
+                        }
+                    });
+                }
+                windowPool.set('notes', notes);
+                if (shouldOpenDevTools) {
+                    notes.webContents.openDevTools({ mode: 'detach' });
+                }
+                break;
+            }
+
             case 'shortcut-settings': {
                 const shortcutEditor = new BrowserWindow({
                     ...commonChildOptions,
@@ -629,15 +698,20 @@ function createFeatureWindows(header, namesToCreate) {
         createFeatureWindow('listen');
         createFeatureWindow('ask');
         createFeatureWindow('settings');
+        createFeatureWindow('notes');
         createFeatureWindow('shortcut-settings');
     }
 }
 
 function destroyFeatureWindows() {
-    const featureWindows = ['listen','ask','settings','shortcut-settings'];
+    const featureWindows = ['listen','ask','settings','notes','shortcut-settings'];
     if (settingsHideTimer) {
         clearTimeout(settingsHideTimer);
         settingsHideTimer = null;
+    }
+    if (notesHideTimer) {
+        clearTimeout(notesHideTimer);
+        notesHideTimer = null;
     }
     featureWindows.forEach(name=>{
         const win = windowPool.get(name);
@@ -741,7 +815,7 @@ function createWindows() {
     setupWindowController(windowPool, layoutManager, movementManager);
 
     if (currentHeaderState === 'main') {
-        createFeatureWindows(header, ['listen', 'ask', 'settings', 'shortcut-settings']);
+        createFeatureWindows(header, ['listen', 'ask', 'settings', 'notes', 'shortcut-settings']);
     }
 
     header.setContentProtection(isContentProtectionOn);
@@ -824,6 +898,9 @@ module.exports = {
     showSettingsWindow,
     hideSettingsWindow,
     cancelHideSettingsWindow,
+    showNotesWindow,
+    hideNotesWindow,
+    cancelHideNotesWindow,
     openLoginPage,
     moveWindowStep,
     handleHeaderStateChanged,

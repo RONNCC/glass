@@ -111,6 +111,11 @@ contextBridge.exposeInMainWorld('api', {
     cancelHideSettingsWindow: () => ipcRenderer.send('cancel-hide-settings-window'),
     showSettingsWindow: () => ipcRenderer.send('show-settings-window'),
     hideSettingsWindow: () => ipcRenderer.send('hide-settings-window'),
+
+    // Notes Window Management
+    showNotesWindow: () => ipcRenderer.send('show-notes-window'),
+    hideNotesWindow: () => ipcRenderer.send('hide-notes-window'),
+    cancelHideNotesWindow: () => ipcRenderer.send('cancel-hide-notes-window'),
     
     // Generic invoke (for dynamic channel names)
     // invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
@@ -265,7 +270,7 @@ contextBridge.exposeInMainWorld('api', {
     onLocalAIInstallationComplete: (callback) => ipcRenderer.on('localai:installation-complete', callback),
     removeOnLocalAIInstallationComplete: (callback) => ipcRenderer.removeListener('localai:installation-complete', callback)
   },
-
+  
   // src/ui/settings/ShortCutSettingsView.js
   shortcutSettingsView: {
     // Shortcut Management
@@ -284,7 +289,7 @@ contextBridge.exposeInMainWorld('api', {
     onSettingsWindowHideAnimation: (callback) => ipcRenderer.on('settings-window-hide-animation', callback),
     removeOnSettingsWindowHideAnimation: (callback) => ipcRenderer.removeListener('settings-window-hide-animation', callback),    
   },
-
+  
   // src/ui/listen/audioCore/listenCapture.js
   listenCapture: {
     // Audio Management
