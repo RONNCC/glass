@@ -15,6 +15,8 @@ export class NotesView extends LitElement {
             }
             .content { max-height: 780px; }
             .hint { color: rgba(255,255,255,0.6); font-size: 11px; }
+            /* Make the top bar draggable like ask window */
+            .title-row { -webkit-app-region: drag; cursor: move; }
 
             /* Inline highlight.js theme (GitHub dark-ish) for shadow DOM */
             .content pre code.hljs {
@@ -168,13 +170,13 @@ export class NotesView extends LitElement {
         return html`
             <div class="container">
                 <div class="title-row">
-                    <div class="left-title" style="gap:6px;">
+                    <div class="left-title" style="gap:6px; -webkit-app-region: no-drag;">
                         <div class="title">Notes</div>
-                        <select @change=${(e) => this._onSelect(e)} .value=${this.selectedId}>
+                        <select @change=${(e) => this._onSelect(e)} .value=${this.selectedId} style="-webkit-app-region: no-drag;">
                             ${this.notes.map(n => html`<option value=${n.id}>${n.title}</option>`)}
                         </select>
                     </div>
-                    <button class="close-btn" @click=${() => this._close()} aria-label="Close">
+                    <button class="close-btn" @click=${() => this._close()} aria-label="Close" style="-webkit-app-region: no-drag;">
                         <svg width="10" height="10" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
                             <path d="M3 3l6 6M9 3L3 9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
                         </svg>
