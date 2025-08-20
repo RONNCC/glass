@@ -39,6 +39,47 @@ export class NotesView extends LitElement {
             .hljs-meta { color: #79c0ff; }
             .hljs-emphasis { font-style: italic; }
             .hljs-strong { font-weight: 700; }
+
+            /* Custom dropdown to avoid native select popover (which can show in screen share) */
+            .left-title { display: flex; align-items: center; gap: 6px; }
+            .dropdown { position: relative; -webkit-app-region: no-drag; }
+            .dropdown-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 2px 8px;
+                border-radius: 6px;
+                background: rgba(255,255,255,0.08);
+                color: #fff;
+                border: 1px solid rgba(255,255,255,0.15);
+                cursor: pointer;
+                font-size: 10px;
+            }
+            .dropdown-btn:hover { background: rgba(255,255,255,0.12); }
+            .dropdown-menu {
+                position: absolute;
+                top: calc(100% + 4px);
+                left: 0;
+                min-width: 180px;
+                max-height: 240px;
+                overflow-y: auto;
+                background: rgba(0,0,0,0.9);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255,255,255,0.15);
+                border-radius: 8px;
+                z-index: 1000;
+                padding: 4px;
+            }
+            .dropdown-item {
+                padding: 6px 8px;
+                border-radius: 6px;
+                cursor: pointer;
+                color: #fff;
+                white-space: nowrap;
+                font-size: 10px;
+            }
+            .dropdown-item[aria-selected="true"] { background: rgba(255,255,255,0.18); }
+            .dropdown-item:hover { background: rgba(255,255,255,0.12); }
         `,
         panelBaseStyles,
         markdownStyles,
@@ -49,6 +90,7 @@ export class NotesView extends LitElement {
         notes: { type: Array },
         selectedId: { type: String },
         _renderedHtml: { type: String, state: true },
+        _dropdownOpen: { type: Boolean, state: true },
     };
 
     constructor() {
@@ -56,6 +98,7 @@ export class NotesView extends LitElement {
         this.notes = [];
         this.selectedId = '';
         this._renderedHtml = '';
+        this._dropdownOpen = false;
     }
 
     async _loadNotes() {
@@ -111,6 +154,16 @@ export class NotesView extends LitElement {
             }
         };
         this.addEventListener('click', this._onClick);
+
+        // Close custom dropdown on outside click
+        this._onGlobalPointerDown = (e) => {
+            if (!this._dropdownOpen) return;
+            const path = e.composedPath();
+            if (!path.includes(this)) {
+                this._dropdownOpen = false;
+            }
+        };
+        window.addEventListener('pointerdown', this._onGlobalPointerDown, { capture: true });
     }
 
     disconnectedCallback() {
@@ -118,6 +171,7 @@ export class NotesView extends LitElement {
         if (this._enter) this.removeEventListener('mouseenter', this._enter);
         if (this._onClick) this.removeEventListener('click', this._onClick);
         if (this._onRefresh) window.api?.notes?.removeOnRefresh?.(this._onRefresh);
+        if (this._onGlobalPointerDown) window.removeEventListener('pointerdown', this._onGlobalPointerDown, true);
     }
 
     updated(changed) {
@@ -143,6 +197,15 @@ export class NotesView extends LitElement {
     _close() { if (window.api?.mainHeader?.hideNotesWindow) window.api.mainHeader.hideNotesWindow(); }
 
     get selectedNote() { return this.notes.find(n => n.id === this.selectedId) || { content: '' }; }
+
+    get selectedNoteTitle() {
+        const note = this.notes.find(n => n.id === this.selectedId);
+        return note?.title || 'Select note';
+    }
+
+    _toggleDropdown = () => { this._dropdownOpen = !this._dropdownOpen; };
+    _closeDropdown = () => { this._dropdownOpen = false; };
+    _onDropdownItemClick = (id) => { this.selectedId = id; this._closeDropdown(); };
 
     _renderMarkdown() {
         try {
@@ -172,9 +235,21 @@ export class NotesView extends LitElement {
                 <div class="title-row">
                     <div class="left-title" style="gap:6px; -webkit-app-region: no-drag;">
                         <div class="title">Notes</div>
-                        <select @change=${(e) => this._onSelect(e)} .value=${this.selectedId} style="-webkit-app-region: no-drag;">
-                            ${this.notes.map(n => html`<option value=${n.id}>${n.title}</option>`)}
-                        </select>
+                        <div class="dropdown" style="-webkit-app-region: no-drag;">
+                            <button class="dropdown-btn" @click=${this._toggleDropdown} aria-haspopup="listbox" aria-expanded=${this._dropdownOpen}>
+                                <span class="selected-title">${this.selectedNoteTitle}</span>
+                                <svg width="10" height="10" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M3 5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                            ${this._dropdownOpen ? html`
+                                <ul class="dropdown-menu" role="listbox">
+                                    ${this.notes.map(n => html`
+                                        <li class="dropdown-item" role="option" aria-selected=${n.id === this.selectedId} @click=${() => this._onDropdownItemClick(n.id)}>${n.title}</li>
+                                    `)}
+                                </ul>
+                            ` : null}
+                        </div>
                     </div>
                     <button class="close-btn" @click=${() => this._close()} aria-label="Close" style="-webkit-app-region: no-drag;">
                         <svg width="10" height="10" viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg">
